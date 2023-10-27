@@ -1,0 +1,8 @@
+#opm
+ecl
+mako
+matplotlib
+scipy
+tensorflow
+keras_tuner
+scikit-learn
