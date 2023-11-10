@@ -4,8 +4,8 @@ ${FLOW} --ml-wi-filename="" --linear-solver-reduction=1e-5 --relaxed-max-pv-frac
 """Set the model parameters"""
 co2store no_disgas_no_diffusion #Model (co2store/h2store)
 cake 60                         #Grid type (radial/cake/cartesian2d/cartesian/cave) and size (theta[in degrees]/theta[in degrees]/width[m]/anynumber(the y size is set equal to the x one))
-${LENGTH} ${HEIGHT}                   #Reservoir dimensions [m] (length and height)
-400 ${NUM_ZCELLS} 0             #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
+${LENGTH} ${HEIGHT}             #Reservoir dimensions [m] (length and height)
+40 ${NUM_ZCELLS} 2             #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
 ${2*WELL_RADIUS} 1 0            #Well diameter [m], well transmiscibility (0 to use the computed one internally in Flow), and remove the smaller cells than the well diameter
 ${INIT_PRESSURE} ${INIT_TEMPERATURE}  0 #Pressure [Pa] on the top, uniform temperature [°], and initial phase in the reservoir (0 wetting, 1 non-wetting)
 1e10 1                          #Pore volume multiplier on the boundary [-] (0 to use well producers instead) and deactivate cross flow within the wellbore (see XFLOW in OPM Manual)
@@ -29,7 +29,7 @@ SWI{i} 0. SNI{i} 0.0 KRW{i} 1 KRN{i} 1 PRE{i} 0 NKRW{i} 2 NKRN{i} 2 HNPE{i} 2 TH
 """Properties rock"""
 """Kxy [mD], Kz [mD], phi [-], thickness [m]"""<% perms = [context.kwargs[f"PERM_{i}"] for i in range(NUM_LAYERS)] %>
 % for perm in perms:
-PERMXY${loop.index} ${perm} PERMZ${loop.index} ${perm} PORO${loop.index} 0.25 THIC${loop.index} ${HEIGHT/NUM_LAYERS}
+PERMXY${loop.index} ${perm} PERMZ${loop.index} ${perm} PORO${loop.index} ${POROSITY} THIC${loop.index} ${HEIGHT/NUM_LAYERS}
 % endfor
 
 """Define the injection values""" 

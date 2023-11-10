@@ -1,12 +1,14 @@
+import math
 import os
+import pathlib
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-from runspecs import runspecs_ensemble_1 as runspecs_ensemble
-
+from matplotlib import cm
 from pyopmnearwell.ml import ensemble
-from pyopmnearwell.utils import formulas, units
+from pyopmnearwell.utils import formulas, plotting, units
+from runspecs import runspecs_ensemble_1 as runspecs_ensemble
 
 dirname: str = os.path.dirname(__file__)
 
@@ -69,8 +71,9 @@ num_completed_runs: int = features.shape[0]
 #############
 # The pressure value in the well block is approximately equal to the pressure at
 # equivalent well radius. For a grid block size of 100x100m the equivalent well radius
-# is r_e=20.0.7...m, which is approximately the 81st fine scale cell.
-# TODO: Make the 160th cell thingy more flexible.
+# is r_e=20.07m. On a triangle grid with theta = pi/6 this is approximately equivalent
+# to to an altidude of x = 20.07/1.1 = 18.2015m which is the 15th fine scale cell.
+# TODO: Make the 15th cell thingy more flexible.
 pressures: np.ndarray = np.average(
     features[..., 0].reshape(
         features.shape[0],
@@ -84,7 +87,7 @@ pressures: np.ndarray = np.average(
     ),
     axis=-2,
 )[
-    ..., 81
+    ..., 15
 ]  # ``shape = (num_completed_runs, num_timesteps/3, num_layers); unit [Pa]
 assert pressures.shape == (
     num_completed_runs,
@@ -99,7 +102,10 @@ assert pressures.shape == (
 # Get full list of cell boundary radii.
 _, inner_radii, outer_radii = ensemble.calculate_radii(
     os.path.join(ensemble_dirname, "runfiles_0", "preprocessing", "GRID.INC"),
+    num_cells=40,
     return_outer_inner=True,
+    triangle_grid=True,
+    theta=math.pi / 3,
 )
 radii: np.ndarray = np.append(inner_radii, outer_radii[-1])
 
@@ -283,7 +289,7 @@ injection_rate_per_second_per_cell: np.ndarray = (
     * units.Q_per_day_to_Q_per_seconds
 )  # ``shape = (num_completed_runs, num_timesteps/3, num_layers)
 # Check that we do not divide by zero.
-assert not np.all(bhps - pressures)
+assert np.all(bhps - pressures)
 WI_data: np.ndarray = injection_rate_per_second_per_cell / (bhps - pressures)
 assert WI_data.shape == (
     num_completed_runs,
@@ -321,7 +327,9 @@ ensemble.store_dataset(
 ############
 # Comparison vs. Peaceman for the first, third and last layer. Only first ensemble
 # member.
-for i in [0, 2, 4]:
+fig_1 = plt.figure(1)
+fig_2 = plt.figure(2)
+for i, color in zip([0, 2, 4], plt.cm.rainbow(np.linspace(0, 1, 3))):
     pressures_member = pressures[0, ..., i]
     bhp_member = bhps[0, ..., i]
     injection_rate_per_second_per_cell_member = injection_rate_per_second_per_cell[
@@ -331,23 +339,17 @@ for i in [0, 2, 4]:
     WI_analytical_member = WI_analytical[0, ..., i]
 
     # Plot analytical vs. data WI in the upper layer.
-    plt.figure()
+    plt.figure(1)
     plt.scatter(
-        timesteps,
-        WI_data_member,
-        label="data",
+        timesteps, WI_data_member, label=f"Layer {i} data", color=color, linestyle="-"
     )
     plt.plot(
         timesteps,
         WI_analytical_member,
-        label="Peaceman",
+        label=f"Layer {i} Peaceman",
+        color=color,
+        linestyle="--",
     )
-    plt.legend()
-    plt.xlabel(r"$t\,[d]$")
-    plt.ylabel(r"$WI\,[m^4\cdot s/kg]$")
-    plt.title(f"Layer {i}")
-    plt.savefig(os.path.join(ensemble_dirname, f"WI_data_vs_Peaceman_{i}.png"))
-    plt.show()
 
     # Plot bhp predicted by Peaceman and data vs actual bhp in the upper layer.
     # NOTE: bhp predicted by data and actual bhp should be identical.
@@ -358,25 +360,45 @@ for i in [0, 2, 4]:
         injection_rate_per_second_per_cell_member / WI_analytical_member
         + pressures_member
     )
-    plt.figure()
+    plt.figure(2)
     plt.scatter(
         timesteps,
         bhp_data,
-        label=r"$p_{bh}$ from data $WI$",
+        label=rf"Layer {i}: calculated from data $WI$",
+        color=color,
     )
     plt.plot(
         timesteps,
         bhp_analytical,
-        label=r"$p_{bh}$ from Peaceman $WI$",
+        label=rf"Layer {i}: calculated from Peaceman $WI$",
+        color=color,
+        linestyle="--",
     )
     plt.plot(
         timesteps,
         bhp_member,
-        label=r"actual $p_{bh}$",
+        label=rf"Layer {i}: data",
+        color=color,
+        linestyle="-",
     )
-    plt.legend()
-    plt.xlabel(r"$t\,[d]$")
-    plt.ylabel(r"$p\,[Pa]$")
-    plt.title(f"Layer {i}")
-    plt.savefig(os.path.join(ensemble_dirname, f"pbh_data_vs_Peaceman_{i}.png"))
-    plt.show()
+
+plt.figure(1)
+plt.legend()
+plt.xlabel(r"$t\,[d]$")
+plt.ylabel(r"$WI\,[m^4\cdot s/kg]$")
+plt.title(r"$WI$")
+plotting.save_fig_and_data(
+    fig_1,
+    pathlib.Path(ensemble_dirname) / "WI_data_vs_Peaceman.png",
+)
+
+
+plt.figure(2)
+plt.legend()
+plt.xlabel(r"$t\,[d]$")
+plt.ylabel(r"$p\,[Pa]$")
+plt.title(r"$p_{bhp}$ for various layers")
+plotting.save_fig_and_data(
+    fig_2, pathlib.Path(ensemble_dirname) / "pbh_data_vs_Peaceman.png"
+)
+plt.show()

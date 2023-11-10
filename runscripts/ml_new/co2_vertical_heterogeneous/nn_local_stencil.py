@@ -1,13 +1,14 @@
 import os
 
+import keras_tuner
 import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
-from runspecs import runspecs_ensemble_1 as runspecs_ensemble
-from runspecs import trainspecs_1 as trainspecs
-
 from pyopmnearwell.ml import ensemble, nn
 from pyopmnearwell.utils import formulas, units
+from runspecs import runspecs_ensemble_1 as runspecs_ensemble
+from runspecs import trainspecs_1 as trainspecs
+from tensorflow import keras
 
 FEATURE_TO_INDEX: dict[str, int] = {
     "pressure_upper": 0,
@@ -108,7 +109,13 @@ for i in range(features.shape[-1] - 1):
 
 # Total injected volume and WI_analytical were not padded and are added back again.
 new_features.append(features[..., -2])
-new_features.append(features[..., -1])
+
+if trainspecs["WI_log"]:
+    targets = np.log10(targets)
+    new_features.append(np.log10(features[..., -1]))
+else:
+    new_features.append(features[..., -1])
+
 new_features_array: np.ndarray = np.stack(new_features, axis=-1)
 
 # Select the correct features from the train specs
@@ -116,17 +123,18 @@ new_features_final: np.ndarray = new_features_array[
     ..., [FEATURE_TO_INDEX[feature] for feature in trainspecs["features"]]
 ]
 
-if trainspecs["WI_log"]:
-    targets = np.log10(targets)
-
 # The new features are in the following order:
 # 1. PRESSURE - upper neighbor
 # 2. PRESSURE - cell
 # 3. PRESSURE - lower neighbor
+# 4. SATURATION - upper neighbor
+# 5. SATURATION - cell
+# 6. SATURATION - lower neighbor
 # 4. PERMEABILITY - upper neighbor
 # 5. PERMEABILITY - cell
 # 6. PERMEABILITY - lower neighbor
-# 7. TIME
+# 7. total injected gas
+# . analytical WI
 
 ensemble.store_dataset(
     new_features_final.reshape(-1, new_features_final.shape[-1]),
@@ -136,14 +144,14 @@ ensemble.store_dataset(
 
 
 # Train model:
-model = nn.get_FCNN(
-    ninputs=len(trainspecs["features"]),
-    noutputs=1,
-    depth=trainspecs["depth"],
-    hidden_dim=trainspecs["hidden_dim"],
-    kernel_initializer="glorot_uniform",
-    normalization=trainspecs["Z-normalization"],
-)
+# model = nn.get_FCNN(
+#     ninputs=len(trainspecs["features"]),
+#     noutputs=1,
+#     depth=trainspecs["depth"],
+#     hidden_dim=trainspecs["hidden_dim"],
+#     kernel_initializer="glorot_uniform",
+#     normalization=trainspecs["Z-normalization"],
+# )
 train_data, val_data = nn.scale_and_prepare_dataset(
     new_data_dirname,
     feature_names=trainspecs["features"],
@@ -158,111 +166,67 @@ val_features, val_targets = val_data
 assert not np.any(np.isnan(train_features))
 assert not np.any(np.isnan(val_targets))
 
-# Adapt the layers when using z-normalization.
-if trainspecs["Z-normalization"]:
-    model.layers[0].adapt(train_data[0])
-    model.layers[-1].adapt(train_data[1])
+# # Adapt the layers when using z-normalization.
+# if trainspecs["Z-normalization"]:
+#     model.layers[0].adapt(train_data[0])
+#     model.layers[-1].adapt(train_data[1])
+if "percentage_loss" in trainspecs and trainspecs["percentage_loss"]:
+    sample_weight: np.ndarray = 1 / (np.abs(train_targets) + np.finfo(float).eps)
+else:
+    sample_weight = np.ones_like(train_targets)
 
 kerasify = not trainspecs["Z-normalization"]
+model: keras.Model = nn.tune(
+    len(trainspecs["features"]), 1, train_data, val_data, sample_weight=sample_weight
+)
 nn.train(
     model,
     train_data,
     val_data,
-    savepath=nn_dirname,
-    epochs=trainspecs["epochs"],
-    loss_func=trainspecs["loss"],
-    kerasify=kerasify,
+    nn_dirname,
+    recompile_model=False,
+    sample_weight=sample_weight,
 )
 
+
+############
+# Plotting #
+############
 # Comparison nn WI vs. Peaceman WI vs. data WI for 3 layers for the first ensemble
 # member.
 timesteps: np.ndarray = np.linspace(0, 1, features.shape[-3]) / 1  # unit: [day]
 
-# for i in [0, 3, 5, 7, 9]:
-#     features_member: np.ndarray = new_features_final[0, ..., i, :]
+fig = plt.figure()
+for i, color in zip([0, 2, 4], plt.cm.rainbow(np.linspace(0, 1, 3))):
+    features: np.ndarray = new_features_final[0, ..., i, :]
 
-#     # Cell pressure is given by the second feature, cell permeability by the fifth.
-#     pressures_member: np.ndarray = new_features_array[0, ..., i, 1]
-#     permeabilities_member: np.ndarray = new_features_array[0, ..., i, 4]
-#     WI_data: np.ndarray = targets[0, ..., i, 0]
+    # Cell pressure is given by the 2nd feature.
+    pressures: np.ndarray = new_features_array[0, ..., i, 1]
+    WI_analytical: np.ndarray = new_features_array[0, ..., i, -1]
+    WI_data: np.ndarray = targets[0, ..., i, 0]
+    WI_nn: np.ndarray = nn.scale_and_evaluate(
+        model, features, os.path.join(nn_dirname, "scalings.csv")
+    )[..., 0]
 
-#     # Rescale to values used by OPM etc.
-#     if trainspecs["pressure_unit"] == "bar":
-#         pressures_member * units.PASCAL_TO_BAR
-#     if trainspecs["permeability_log"]:
-#         permeabilities_member = 10**permeabilities_member
-#     # Rescale if the targets were scaled.
-#     if trainspecs["WI_log"]:
-#         WI_data = 10**WI_data
+    if trainspecs["WI_log"]:
+        WI_analytical = 10**WI_analytical
+        WI_data = 10**WI_data
+        WI_nn = 10**WI_nn
 
-#     # Loop through all time steps and collect analytical WIs.
-#     WI_analytical = []
-#     for pressure, permeability in zip(pressures_member, permeabilities_member):
-#         # Evaluate density and viscosity.
-#         density = formulas.co2brinepvt(
-#             pressure=pressure,
-#             temperature=runspecs_ensemble["constants"]["INIT_TEMPERATURE"]
-#             + units.CELSIUS_TO_KELVIN,
-#             property="density",
-#             phase="water",
-#         )
+    # Plot analytical vs. data WI in the upper layer.
+    plt.scatter(timesteps, WI_data, label=f"Layer {i} data", color=color, linestyle="-")
+    plt.plot(
+        timesteps,
+        WI_analytical,
+        label=f"Layer {i}: Peaceman",
+        color=color,
+        linestyle="--",
+    )
+    plt.plot(timesteps, WI_nn, label=f"Layer {i}: NN", color=color, linestyle="-")
 
-#         viscosity = formulas.co2brinepvt(
-#             pressure=pressure,
-#             temperature=runspecs_ensemble["constants"]["INIT_TEMPERATURE"]
-#             + units.CELSIUS_TO_KELVIN,
-#             property="viscosity",
-#             phase="water",
-#         )
-
-#         # Calculate the well index from Peaceman. The analytical well index is in [m*s],
-#         # hence we need to devide by surface density to transform to [m^4*s/kg].
-#         WI_analytical.append(
-#             formulas.peaceman_WI(
-#                 k_h=permeability
-#                 * units.MILIDARCY_TO_M2
-#                 * runspecs_ensemble["constants"]["HEIGHT"]
-#                 / runspecs_ensemble["constants"]["NUM_ZCELLS"],
-#                 r_e=formulas.equivalent_well_block_radius(200),
-#                 r_w=0.25,
-#                 rho=density,
-#                 mu=viscosity,
-#             )
-#             / runspecs_ensemble["constants"]["SURFACE_DENSITY"]
-#         )
-
-#     WI_nn: np.ndarray = nn.scale_and_evaluate(
-#         model, features_member, os.path.join(nn_dirname, "scalings.csv")
-#     )[..., 0]
-#     # Rescale if the targets were scaled.
-#     if trainspecs["WI_log"]:
-#         WI_nn = 10**WI_nn
-
-#     plt.figure()
-#     plt.scatter(
-#         timesteps,
-#         WI_data,
-#         label="data",
-#     )
-#     plt.plot(
-#         timesteps,
-#         WI_nn,
-#         label="NN",
-#     )
-#     plt.plot(
-#         timesteps,
-#         WI_analytical,
-#         label="Peaceman",
-#     )
-#     plt.legend()
-#     plt.xlabel(r"$t\,[d]$")
-#     plt.ylabel(r"$WI\,[m^4\cdot s/kg]$")
-#     plt.title(f"Layer {i} permeability {permeabilities_member[0]:.2f} [mD]")
-#     plt.savefig(
-#         os.path.join(
-#             dirname,
-#             nn_dirname,
-#             f"WI_data_vs_nn_vs_Peaceman_{i}.png",
-#         )
-#     )
-#     plt.show()
+plt.legend()
+plt.xlabel(r"$t\,[d]$")
+plt.ylabel(r"$WI\,[m^4\cdot s/kg]$")
+plt.title(f"WI")
+plt.savefig(os.path.join(dirname, nn_dirname, "WI_data_vs_nn_vs_Peaceman.png"))
+plt.show()

@@ -1,8 +1,7 @@
 import os
 
-from runspecs import runspecs_integration
-
 from pyopmnearwell.ml import integration
+from runspecs import runspecs_integration
 
 dirname: str = os.path.dirname(__file__)
 
@@ -17,7 +16,7 @@ os.makedirs(integration_r_e_dirname, exist_ok=True)
 integration.recompile_flow(
     os.path.join(nn_r_e_dirname, "scalings.csv"),
     "local_stencil",
-    runspecs_integration["constants"]["OPM"],
+    runspecs_integration["constants"]["OPM_ML"],
     standard_well_file="local_stencil",
     stencil_size=3,
     cell_feature_names=["pressure"],
