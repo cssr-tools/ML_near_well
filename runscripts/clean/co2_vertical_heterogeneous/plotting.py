@@ -1,81 +1,164 @@
+import pathlib
+from typing import Literal, Optional
 
-############
-# Plotting #
-############
-# Comparison vs. Peaceman for the first, third and last layer. Only first ensemble
-# member.
-fig_1 = plt.figure(1)
-fig_2 = plt.figure(2)
-for i, color in zip([0, 2, 4], plt.cm.rainbow(np.linspace(0, 1, 3))):
-    pressures_member = pressures[0, ..., i]
-    bhp_member = bhps[0, ..., i]
-    injection_rate_per_second_per_cell_member = injection_rate_per_second_per_cell[
-        0, ..., i
-    ]
-    WI_data_member = WI_data[0, ..., i]
-    WI_analytical_member = WI_analytical[0, ..., i]
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from matplotlib.figure import Figure
+from pyopmnearwell.utils import formulas, plotting, units
+from runspecs import runspecs_ensemble
 
-    # Plot analytical vs. data WI in the upper layer.
-    plt.figure(1)
-    plt.scatter(
-        timesteps, WI_data_member, label=f"Layer {i} data", color=color, linestyle="-"
-    )
-    plt.plot(
-        timesteps,
-        WI_analytical_member,
-        label=f"Layer {i} Peaceman",
-        color=color,
-        linestyle="--",
-    )
+dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-    # Plot bhp predicted by Peaceman and data vs actual bhp in the upper layer.
-    # NOTE: bhp predicted by data and actual bhp should be identical.
-    bhp_data: np.ndarray = (
-        injection_rate_per_second_per_cell_member / WI_data_member + pressures_member
-    )
-    bhp_analytical: np.ndarray = (
-        injection_rate_per_second_per_cell_member / WI_analytical_member
-        + pressures_member
-    )
-    plt.figure(2)
-    plt.scatter(
-        timesteps,
-        bhp_data,
-        label=rf"Layer {i}: calculated from data $WI$",
-        color=color,
-    )
-    plt.plot(
-        timesteps,
-        bhp_analytical,
-        label=rf"Layer {i}: calculated from Peaceman $WI$",
-        color=color,
-        linestyle="--",
-    )
-    plt.plot(
-        timesteps,
-        bhp_member,
-        label=rf"Layer {i}: data",
-        color=color,
-        linestyle="-",
-    )
-
-plt.figure(1)
-plt.legend()
-plt.xlabel(r"$t\,[d]$")
-plt.ylabel(r"$WI\,[m^4\cdot s/kg]$")
-plt.title(r"$WI$")
-plotting.save_fig_and_data(
-    fig_1,
-    pathlib.Path(ensemble_dirname) / "WI_data_vs_Peaceman.png",
-)
+plotted_values_units: dict[str, str] = {"WI": r"[m^4 \cdot s/kg]", "bhp": "[Pa]"}
+x_axis_units: dict[str, str] = {"time": "[d]", "radius": "[m]"}
+comparisons_inverse: dict[str, str] = {
+    "timesteps": "layer",
+    "layers": "timestep or radius",
+}
 
 
-plt.figure(2)
-plt.legend()
-plt.xlabel(r"$t\,[d]$")
-plt.ylabel(r"$p\,[Pa]$")
-plt.title(r"$p_{bhp}$ for various layers")
-plotting.save_fig_and_data(
-    fig_2, pathlib.Path(ensemble_dirname) / "pbh_data_vs_Peaceman.png"
-)
-plt.show()
+def plot_member(
+    features: np.ndarray,
+    WI_data: np.ndarray,
+    member: int,
+    WI_analytical_index: int,
+    savepath: str | pathlib.Path,
+    pressure_index: Optional[int] = None,
+    inj_rate_index: Optional[int] = None,
+    plotted_value: Literal["bhp", "WI"] = "WI",
+    x_axis: Literal["time", "radius"] = "radius",
+    comparison: Literal["timesteps", "layers"] = "layers",
+    fixed_index: int = 0,
+) -> None:
+    if x_axis == "time" and comparison == "timesteps":
+        raise ValueError("x_axis and comparison cannot both be time")
+
+    if plotted_value == "bhp":
+        # For "bhp" to be plotted from the neural network output, the pressure and injection
+        # rate need to be known.
+        if pressure_index is None or inj_rate_index is None:
+            raise ValueError(
+                f"plotted_value = {plotted_value} requires values for pressure_index and inj_rate_index"
+            )
+        # For "bhp" data to be plotted it has to be included in data.
+        else:
+            # TODO: Fix plotting of bhp values. Either the bhp needs to be passed
+            # themselves or pressure values must include the well cell.
+            raise ValueError("bhp values must be part of the features")
+
+    # Get data and analytical values
+    data_member: np.ndarray = WI_data[member]
+
+    analytical_member: np.ndarray = features[member, ..., WI_analytical_index]
+
+    if plotted_value == "bhp":
+        # Additionally to data and analytical, reconstruct bhp from WI data. This should
+        # align with the data.
+        pressure_member: np.ndarray = features[member, ..., pressure_index]
+        inj_rate_member: np.ndarray = features[member, ..., inj_rate_index]
+        bhp_reconstructed_member = inj_rate_member / data_member + pressure_member
+
+        data_member: np.ndarray = features[member, ..., 0, pressure_index]
+        analytical_member = inj_rate_member / analytical_member + pressure_member
+    elif plotted_value == "WI":
+        pass
+
+    if comparison == "layers":
+        comp_axis = range(features.shape[-3])
+        data_member = np.swapaxes(data_member, 0, 1)
+        analytical_member = np.swapaxes(analytical_member, 0, 1)
+        if plotted_value == "bhp":
+            bhp_reconstructed_member = np.swapaxes(bhp_reconstructed_member, 0, 1)
+    elif comparison == "timesteps":
+        comp_axis = range(features.shape[1])
+
+    if x_axis == "time":
+        x_values: np.ndarray = np.arange(features.shape[1])
+        # In this case, comparison must be "layers", hence timesteps are on the second
+        # axis. We swap again with radius
+        data_member = np.swapaxes(data_member, 1, 2)
+        analytical_member = np.swapaxes(analytical_member, 1, 2)
+        if plotted_value == "bhp":
+            bhp_reconstructed_member = np.swapaxes(bhp_reconstructed_member, 1, 2)
+    elif x_axis == "radius":
+        x_values = np.arange(features.shape[-2])
+
+    fig: Figure = plt.figure()
+
+    # Map for all given comparisons.
+    for num_comp, color in zip(
+        comp_axis, plt.cm.rainbow(np.linspace(0, 1, len(comp_axis)))
+    ):
+        # Plot bhp predicted by Peaceman and data vs actual bhp in the upper layer.
+        # NOTE: bhp predicted by data and actual bhp should be identical.
+        plt.scatter(
+            x_values,
+            data_member[num_comp, fixed_index],
+            label=rf"{comparison} {num_comp}: data ${plotted_value}$",
+            color=color,
+        )
+        plt.plot(
+            x_values,
+            analytical_member[num_comp, fixed_index],
+            label=rf"{comparison} {num_comp}: analytical",
+            color=color,
+            linestyle="-",
+        )
+
+        if plotted_value == "bhp":
+            plt.plot(
+                x_values,
+                bhp_reconstructed_member[num_comp, fixed_index],
+                label=rf"Layer {num_comp}: calculated from data-driven $WI$",
+                color=color,
+                linestyle="--",
+            )
+
+    plt.legend()
+    plt.xlabel(rf"${x_axis}\, {x_axis_units[x_axis]}$")
+    plt.ylabel(rf"${plotted_value}\, {plotted_values_units[plotted_value]}$")
+    plt.title(
+        rf"${plotted_value}$ plotted vs {x_axis} for various {comparison}"
+        + f" at {comparisons_inverse[comparison]} {fixed_index}"
+    )
+    plotting.save_fig_and_data(
+        fig,
+        savepath,
+    )
+
+
+if __name__ == "__main__":
+    ensemble_dirname: pathlib.Path = dirname / runspecs_ensemble["name"]
+    data_dirname: pathlib.Path = dirname / f"dataset_{runspecs_ensemble['name']}"
+
+    ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
+    features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
+
+    for i in range(0, 49, 10):
+        plot_member(
+            features,
+            targets,
+            i,
+            6,
+            ensemble_dirname / f"WI_vs_radius_member_{i}",
+            fixed_index=4,
+        )
+        plot_member(
+            features,
+            targets,
+            i,
+            6,
+            ensemble_dirname / f"WI_vs_time_member_{i}",
+            x_axis="time",
+        )
+        # plot_member(
+        #     features,
+        #     targets,
+        #     i,
+        #     5,
+        #     ensemble_dirname / f"bhp_vs_radius_member_{i}",
+        #     pressure_index=0,
+        #     inj_rate_index=5,
+        #     plotted_value="bhp",
+        # )

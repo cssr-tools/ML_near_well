@@ -11,35 +11,39 @@ FLOW_ML: str = f"{OPM_ML}/build/opm-simulators/bin/flow_gaswater_dissolution_dif
 OPM: str = "/home/peter/Documents/2023_CEMRACS/opm"
 FLOW: str = f"{OPM}/build/opm-simulators/bin/flow"
 
-npoints: int = 50
 
 num_layers: int = 5
-num_zcells: int = num_layers * 5
 injection_rate: float = 5e6  # unit: [m^3/d]
 surface_density: float = 1.86843  # unit: [kg/m^3]
 
 
+##########
+# Ensemble
+##########
+npoints: int = 50
+num_zcells: int = num_layers * 5
+num_xcells: int = 40
+
 # NOTE: Vertical permeabilties are equal to horizontal permeability.
-# variables_1: small differences in permeability.
-variables_1: dict[str, tuple[float, float, int]] = {
-    f"PERM_{i}": (  # unit: [mD]
+variables: dict[str, tuple[float, float, int]] = {
+    f"PERM_{i}": (
         5e-13 * units.M2_TO_MILIDARCY,
         5e-12 * units.M2_TO_MILIDARCY,
         npoints,
-    )
+    )  # unit: [mD]
     for i in range(num_layers)
 }
 
-for variables in [variables_1]:
-    variables.update(
-        {
-            "INIT_PRESSURE": (
-                50 * units.BAR_TO_PASCAL,
-                150 * units.BAR_TO_PASCAL,
-                npoints,
-            ),  # unit: [Pa]
-        }
-    )
+
+variables.update(
+    {
+        "INIT_PRESSURE": (
+            50 * units.BAR_TO_PASCAL,
+            150 * units.BAR_TO_PASCAL,
+            npoints,
+        ),  # unit: [Pa]
+    }
+)
 
 constants: dict[str, Any] = {
     "INIT_TEMPERATURE": 25,  # unit: [°C])
@@ -52,21 +56,24 @@ constants: dict[str, Any] = {
     #
     "NUM_LAYERS": num_layers,
     "NUM_ZCELLS": num_zcells,
+    "NUM_XCELLS": num_xcells,
     "LENGTH": 100,
     "HEIGHT": 20,
     "FLOW": FLOW,
     "OPM": OPM,
 }
 
-
-runspecs_ensemble_1: dict[str, Any] = {
+runspecs_ensemble: dict[str, Any] = {
     "name": "ensemble_1",
     "npoints": npoints,  # number of ensemble members
     "npruns": min(npoints, 5),  # number of parallel runs
-    "variables": variables_1,
+    "variables": variables,
     "constants": constants,
 }
 
+##########
+# Training
+##########
 trainspecs: dict[str, Any] = {
     "name": "trainspecs",
     # Data conversion/padding
@@ -90,13 +97,18 @@ trainspecs: dict[str, Any] = {
         "permeability_upper",
         "permeability",
         "permeability_lower",
+        "radius",
         "total_injected_volume",
-        "WI_analytical",
+        "PI_analytical",
     ],
     #
     "kerasify": True,
 }
 
+
+##########
+# Integration
+##########
 constants: dict[str, Any] = {
     f"PERM_{i}": random.uniform(5e-13, 5e-12) * units.M2_TO_MILIDARCY
     for i in range(num_layers)
