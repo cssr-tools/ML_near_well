@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 from pyopmnearwell.ml import analysis, ensemble, nn
 from pyopmnearwell.utils import plotting, units
 from runspecs import runspecs_ensemble_2 as runspecs_ensemble
-from runspecs import trainspecs_2 as trainspecs
+from runspecs import trainspecs_1 as trainspecs
 from tensorflow import keras
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
@@ -33,7 +33,7 @@ FEATURE_TO_INDEX: dict[str, int] = {
 plotted_values_units: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
     "bhp": "[Pa]",
-    "perm": "[mD]",
+    "perm": r"[m^2]",
 }
 x_axis_units: dict[str, str] = {"time": "[d]", "radius": "[m]"}
 comparisons_inverse: dict[str, str] = {
@@ -304,6 +304,7 @@ def just_train(
         recompile_model=True,
         sample_weight=sample_weight,
         kerasify=trainspecs["kerasify"],
+        lr=0.00001,
     )
 
 
@@ -431,7 +432,7 @@ def plot_member(
             model, input, nn_dirname / "scalings.csv"
         )
 
-        # Get permeability of comparison if available and rescale if necessary.
+        # Get permeability of layer if available and rescale if necessary.
         if permeability_index is not None:
             permeability: float = input[0, permeability_index]
             if trainspecs["permeability_log"]:
@@ -494,15 +495,15 @@ def main():
     # # tune_and_train(trainspecs, new_data_dirname, nn_dirname)
 
     # model: keras.Model = nn.get_FCNN(
-    #     12, 1, depth=20, hidden_dim=20, activation="sigmoid"
+    #     len(trainspecs["features"]), 1, depth=10, hidden_dim=15, activation="relu"
     # )
     # just_train(trainspecs, new_data_dirname, nn_dirname, model)
 
-    model = keras.models.load_model(nn_dirname / "bestmodel.keras")
+    model: keras.Model = keras.models.load_model(nn_dirname / "bestmodel.keras")
     # features, targets = reload_data(
     #     runspecs_ensemble, trainspecs, new_data_dirname, step_size_t=3, num_xcells=13
     # )
-    # for i in range(150, 199, 10):
+    # for i in range(0, 200, 10):
     #     plot_member(
     #         features,
     #         targets,
@@ -549,12 +550,16 @@ def main():
     #         fixed_index=10,
     #         permeability_index=FEATURE_TO_INDEX["permeability"],
     #     )
-    outputs, inputs = analysis.sensitivity_analysis(model)
+    outputs, inputs = analysis.sensitivity_analysis(model, mode="random_uniform")
+    main_output, main_input = analysis.sensitivity_analysis(
+        model, resolution_1=1, mode=0.0
+    )
     analysis.plot_analysis(
         outputs,
         inputs,
         nn_dirname / "sensitivity_analysis",
         feature_names=list(FEATURE_TO_INDEX.keys()),
+        main_plot=[main_output, main_input],
     )
 
 

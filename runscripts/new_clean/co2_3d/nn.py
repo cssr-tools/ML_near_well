@@ -6,10 +6,10 @@ import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
-from pyopmnearwell.ml import analysis, ensemble, nn
+from pyopmnearwell.ml import ensemble, nn
 from pyopmnearwell.utils import plotting, units
 from runspecs import runspecs_ensemble_2 as runspecs_ensemble
-from runspecs import trainspecs_2 as trainspecs
+from runspecs import trainspecs_1 as trainspecs
 from tensorflow import keras
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
@@ -33,7 +33,7 @@ FEATURE_TO_INDEX: dict[str, int] = {
 plotted_values_units: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
     "bhp": "[Pa]",
-    "perm": "[mD]",
+    "perm": r"[m^2]",
 }
 x_axis_units: dict[str, str] = {"time": "[d]", "radius": "[m]"}
 comparisons_inverse: dict[str, str] = {
@@ -256,57 +256,6 @@ def tune_and_train(
     )
 
 
-def just_train(
-    trainspecs: dict[str, Any],
-    data_dirname: str | pathlib.Path,
-    nn_dirname: str | pathlib.Path,
-    model: keras.Model,
-) -> None:
-    train_data, val_data, test_data = nn.scale_and_prepare_dataset(
-        data_dirname,
-        feature_names=trainspecs["features"],
-        savepath=nn_dirname,
-        scale=trainspecs["MinMax_scaling"],
-        train_split=0.8,
-        val_split=0.1,
-        test_split=0.1,
-        # Shuffle last s.t. training, val, and test split come from different ensemble
-        # runs.
-        shuffle="last",
-    )
-
-    train_features, train_targets = train_data
-    assert not np.any(np.isnan(train_features))
-    assert not np.any(np.isnan(train_targets))
-    val_features, val_targets = val_data
-    assert not np.any(np.isnan(train_features))
-    assert not np.any(np.isnan(val_targets))
-    test_features, test_targets = test_data
-    assert not np.any(np.isnan(train_features))
-    assert not np.any(np.isnan(val_targets))
-
-    # # Adapt the layers when using z-normalization.
-    # TODO: Implement this in ```nn.tune`` somehow.
-    # if trainspecs["Z-normalization"]:
-    #     model.layers[0].adapt(train_data[0])
-    #     model.layers[-1].adapt(train_data[1])
-
-    # Add sample weight equal to abs. target value to get percentage loss.
-    if trainspecs.get("percentage_loss", False):
-        sample_weight: np.ndarray = 1 / (np.abs(train_targets) + np.finfo(float).eps)
-    else:
-        sample_weight = np.ones_like(train_targets)
-    nn.train(
-        model,
-        train_data,
-        val_data,
-        nn_dirname,
-        recompile_model=True,
-        sample_weight=sample_weight,
-        kerasify=trainspecs["kerasify"],
-    )
-
-
 def reload_data(
     runspecs: dict[str, Any],
     trainspecs: dict[str, Any],
@@ -431,7 +380,7 @@ def plot_member(
             model, input, nn_dirname / "scalings.csv"
         )
 
-        # Get permeability of comparison if available and rescale if necessary.
+        # Get permeability of layer if available and rescale if necessary.
         if permeability_index is not None:
             permeability: float = input[0, permeability_index]
             if trainspecs["permeability_log"]:
@@ -487,75 +436,63 @@ def main():
         pathlib.Path(dirname) / f"nn_{runspecs_ensemble['name']}_{trainspecs['name']}"
     )
 
-    # new_data_dirname.mkdir(exist_ok=True)
-    # nn_dirname.mkdir(exist_ok=True)
+    new_data_dirname.mkdir(exist_ok=True)
+    nn_dirname.mkdir(exist_ok=True)
 
-    # restructure_data(data_dirname, new_data_dirname, trainspecs)
-    # # tune_and_train(trainspecs, new_data_dirname, nn_dirname)
+    restructure_data(data_dirname, new_data_dirname, trainspecs)
+    tune_and_train(trainspecs, new_data_dirname, nn_dirname)
 
-    # model: keras.Model = nn.get_FCNN(
-    #     12, 1, depth=20, hidden_dim=20, activation="sigmoid"
-    # )
-    # just_train(trainspecs, new_data_dirname, nn_dirname, model)
-
-    model = keras.models.load_model(nn_dirname / "bestmodel.keras")
-    # features, targets = reload_data(
-    #     runspecs_ensemble, trainspecs, new_data_dirname, step_size_t=3, num_xcells=13
-    # )
-    # for i in range(150, 199, 10):
-    #     plot_member(
-    #         features,
-    #         targets,
-    #         i,
-    #         model,
-    #         nn_dirname,
-    #         nn_dirname / f"WI_vs_radius_member_{i}_timestep_{4}",
-    #         fixed_index=4,
-    #         radius_index=FEATURE_TO_INDEX["radius"],
-    #         permeability_index=FEATURE_TO_INDEX["permeability"],
-    #     )
-    #     plot_member(
-    #         features,
-    #         targets,
-    #         i,
-    #         model,
-    #         nn_dirname,
-    #         nn_dirname / f"WI_vs_radius_member_{i}_timestep_{0}",
-    #         fixed_index=0,
-    #         radius_index=FEATURE_TO_INDEX["radius"],
-    #         permeability_index=FEATURE_TO_INDEX["permeability"],
-    #     )
-    #     plot_member(
-    #         features,
-    #         targets,
-    #         i,
-    #         model,
-    #         nn_dirname,
-    #         nn_dirname / f"WI_vs_time_member_{i}_radius_value_{0}",
-    #         x_axis="time",
-    #         final_time=5.0,
-    #         fixed_index=0,
-    #         permeability_index=FEATURE_TO_INDEX["permeability"],
-    #     )
-    #     plot_member(
-    #         features,
-    #         targets,
-    #         i,
-    #         model,
-    #         nn_dirname,
-    #         nn_dirname / f"WI_vs_time_member_{i}_radius_value_{10}",
-    #         x_axis="time",
-    #         final_time=5.0,
-    #         fixed_index=10,
-    #         permeability_index=FEATURE_TO_INDEX["permeability"],
-    #     )
-    outputs, inputs = analysis.sensitivity_analysis(model)
-    analysis.plot_analysis(
-        outputs,
-        inputs,
-        nn_dirname / "sensitivity_analysis",
-        feature_names=list(FEATURE_TO_INDEX.keys()),
+    model: keras.Model = keras.models.load_model(nn_dirname / "bestmodel.keras")
+    features, targets = reload_data(
+        runspecs_ensemble, trainspecs, new_data_dirname, step_size_t=3, num_xcells=13
     )
+    for i in range(0, 49, 10):
+        plot_member(
+            features,
+            targets,
+            i,
+            model,
+            nn_dirname,
+            nn_dirname / f"WI_vs_radius_member_{i}_timestep_{4}",
+            fixed_index=4,
+            radius_index=FEATURE_TO_INDEX["radius"],
+            permeability_index=FEATURE_TO_INDEX["permeability"],
+        )
+        plot_member(
+            features,
+            targets,
+            i,
+            model,
+            nn_dirname,
+            nn_dirname / f"WI_vs_radius_member_{i}_timestep_{0}",
+            fixed_index=0,
+            radius_index=FEATURE_TO_INDEX["radius"],
+            permeability_index=FEATURE_TO_INDEX["permeability"],
+        )
+        plot_member(
+            features,
+            targets,
+            i,
+            model,
+            nn_dirname,
+            nn_dirname / f"WI_vs_time_member_{i}_radius_value_{0}",
+            x_axis="time",
+            final_time=5.0,
+            fixed_index=0,
+            permeability_index=FEATURE_TO_INDEX["permeability"],
+        )
+        plot_member(
+            features,
+            targets,
+            i,
+            model,
+            nn_dirname,
+            nn_dirname / f"WI_vs_time_member_{i}_radius_value_{10}",
+            x_axis="time",
+            final_time=5.0,
+            fixed_index=10,
+            permeability_index=FEATURE_TO_INDEX["permeability"],
+        )
 
 
 if __name__ == "__main__":
