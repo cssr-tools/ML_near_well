@@ -27,6 +27,7 @@ data_dir.mkdir(parents=True, exist_ok=True)
 nn_dir.mkdir(parents=True, exist_ok=True)
 
 # Get OPM installations.
+# TODO: These need to be adjusted for reproducing results.
 OPM: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm")
 FLOW: pathlib.Path = OPM / "build" / "opm-simulators" / "bin" / "flow"
 OPM_ML: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm_ml")
@@ -232,7 +233,7 @@ def main() -> None:
 
     # Setup dataset for training.
     extracted_data = np.load(str(ensemble_dir / "features.npy"))
-    dataset = H2O_Dataset(extracted_data, runspecs_ensemble, 5)
+    dataset = CO2_2D_Dataset(extracted_data, runspecs_ensemble, 5)
     features, targets = dataset.create_ds(ensemble_dir, step_size_x=1, step_size_t=3)
 
     # Remove WI_analytical for training.
