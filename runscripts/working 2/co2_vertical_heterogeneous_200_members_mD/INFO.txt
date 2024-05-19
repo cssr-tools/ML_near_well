@@ -1,6 +1,0 @@
-Note: input_PI_analytical was calculcated based on the m^2 values, not the mD values.
-In the current integration template, OPM passes it based on the mD value. This will not
-work.
-
-In integration_ensemble_2_trainspecs_1, everything worked correctly. PI_analytical was
-based on m^2 values both during training and integration.

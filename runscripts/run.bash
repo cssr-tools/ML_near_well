@@ -1,6 +1,6 @@
-cd examples/h2o_extended
+cd runscripts/paper/h2o
 python main.py
-cd ../co2_2d_extended
+cd ../co2_2d
 python main.py
-cd ../co2_3d_extended
+cd ../co2_3d
 python main.py
