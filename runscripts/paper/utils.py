@@ -106,6 +106,7 @@ def full_ensemble(
     ensemble_dict = ensemble.create_ensemble(
         runspecs,
         efficient_sampling=runspecs["variables"],
+        seed=kwargs.get("seed", None),
     )
 
     # It is assumed that the mako is in the parent directory of ``ensemble_dirname``.
@@ -116,6 +117,8 @@ def full_ensemble(
         ensemble_dirname / ".." / "ensemble.mako",
         **kwargs,
     )
+    # Get flags from "ensemble.mako".
+    flags: str = ensemble.get_flags(ensemble_dirname / ".." / "ensemble.mako")
     data: dict[str, Any] = ensemble.run_ensemble(
         runspecs["constants"]["FLOW"],
         ensemble_dirname,
@@ -123,8 +126,12 @@ def full_ensemble(
         ecl_keywords=ecl_keywords,
         init_keywords=init_keywords,
         summary_keywords=summary_keywords,
-        num_report_steps=runspecs["constants"]["INJECTION_TIME"]
-        * runspecs["constants"]["REPORTSTEP_LENGTH"],
+        # Disregard ensemble runs that did not run for all time steps.
+        num_report_steps=math.floor(
+            runspecs["constants"]["INJECTION_TIME"]
+            / runspecs["constants"]["REPORTSTEP_LENGTH"]
+        ),
+        flags=flags,
         **kwargs,
     )
     features: np.ndarray = np.array(
@@ -487,7 +494,8 @@ def reload_data(
     data_dirname: str | pathlib.Path,
     step_size_x: int = 1,
     step_size_t: int = 1,
-    num_xcells: Optional[int] = None,
+    num_xvalues: Optional[int] = None,
+    num_zvalues: Optional[int] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Load a dataset and return in shape s.t. member/time/z-axis/x-axis are distinct
     axes.
@@ -500,7 +508,8 @@ def reload_data(
         data_dirname (str | pathlib.Path): _description_
         step_size_x (int, optional): _description_. Defaults to 1.
         step_size_t (int, optional): _description_. Defaults to 1.
-        num_xcells (Optional[int], optional): _description_. Defaults to None.
+        num_xvalues (Optional[int], optional): _description_. Defaults to None.
+        num_zvalues (Optional[int], optional): _description_. Defaults to None.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: _description_
@@ -509,21 +518,36 @@ def reload_data(
     # Get feature shape. Along the corresponding dimensions ``num_timesteps`` and
     # ``num_xcells`` were reduced, by feature[:, ::step_size_t, ::, ::step_size_x]. We
     # calculate the adjusted dimensions with ``math.ceil``.
+    # TODO: Is first using math.floor, then math.ceil correct?
+    # TODO: Run an OPM Flow simulation with missmatching reportstep length and injection
+    # time to find out.
     num_timesteps: int = math.ceil(
-        (runspecs["constants"]["INJECTION_TIME"] * 10) / step_size_t
+        math.floor(
+            (
+                runspecs["constants"]["INJECTION_TIME"]
+                / runspecs["constants"]["REPORTSTEP_LENGTH"]
+            )
+        )
+        / step_size_t
     )
     num_layers: int = runspecs["constants"]["NUM_LAYERS"]
     num_features: int = len(trainspecs["features"])
 
-    # Calc. ``num_xcells`` if not provided.
-    if num_xcells is None:
-        num_xcells = math.ceil((runspecs["constants"]["NUM_XCELLS"] - 1) / step_size_x)
+    # Calc. ``num_xvalues`` and ``num_zvalues`` if not provided.
+    if num_xvalues is None:
+        # Innermost and outermost cell get disregarded and for some reason the grid has
+        # one cell less than specified -> substract 3.
+        num_xvalues = math.ceil((runspecs["constants"]["NUM_XCELLS"] - 3) / step_size_x)
+    if num_zvalues is None:
+        num_zvalues = runspecs["constants"]["NUM_ZCELLS"]
 
     # Load flattened data and reshape.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
-    features = features.reshape(-1, num_timesteps, num_layers, num_xcells, num_features)
-    targets = targets.reshape(-1, num_timesteps, num_layers, num_xcells, 1)
+    features = features.reshape(
+        -1, num_timesteps, num_layers, num_xvalues, num_features
+    )
+    targets = targets.reshape(-1, num_timesteps, num_layers, num_xvalues, 1)
     return features, targets
 
 
@@ -816,11 +840,6 @@ def plot_member(
         fig,
         savepath,
     )
-
-
-def set_seed(seed: int = 0) -> None:
-    keras.utils.set_random_seed(seed)
-    tf.config.experimental.enable_op_determinism()
 
 
 def L2_error(model: keras.Model, features, targets):

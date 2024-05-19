@@ -1,2 +1,5 @@
 {
+    "files.autoSave": "off",
+    "autoDocstring.customTemplatePath": "",
+    "autoDocstring.docstringFormat": "google"
 }

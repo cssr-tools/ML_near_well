@@ -12,7 +12,7 @@ FLOW_ML: pathlib.Path = (
     OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
 )
 
-NUM_MEMBERS: int = 100
+NUM_MEMBERS: int = 200
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
@@ -24,7 +24,7 @@ runspecs_ensemble: dict[str, Any] = {
             150 * units.BAR_TO_PASCAL,
             NUM_MEMBERS,
         ),  # unit: [Pa]
-        "INT_HEIGHT": (1, 30, NUM_MEMBERS),  # unit: [m]
+        "INT_HEIGHT": (2, 20, NUM_MEMBERS),  # unit: [m]
         "PERM": (
             1e-14 * units.M2_TO_MILIDARCY,
             1e-12 * units.M2_TO_MILIDARCY,
@@ -53,26 +53,26 @@ trainspecs: dict[str, Any] = {
     "permeability_log": False,
 }
 
-runspecs_integration: dict[str, Any] = {
+runspecs_integration_1: dict[str, Any] = {
     "variables": {
-        # "GRID_SIZE": [4, 10],
-        "GRID_SIZE": [4, 4, 10, 10, 20, 20, 100],
+        # "GRID_SIZE": [5, 10, 20],
+        "GRID_SIZE": [5, 5, 10, 10, 20, 20, 100],
         "ML_MODEL_PATH": [
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
             "",
         ],
         "RUN_NAME": [
             "100x100m_NN",
             "100x100m_Peaceman",
-            "43x43m_NN",
-            "43x43m_Peaceman",
-            "21x21m_NN",
-            "21x21m_Peaceman",
+            "52x52m_NN",
+            "52x52m_Peaceman",
+            "27x27m_NN",
+            "27x27m_Peaceman",
             "5x5m_Peaceman",
         ],
     },
@@ -81,8 +81,26 @@ runspecs_integration: dict[str, Any] = {
         "PERM": 1e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
         "INT_HEIGHT": 5,  # unit: [m]
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "RESERVOIR_SIZE": 900,  # unit: [m]
+        "RESERVOIR_SIZE": 1100,  # unit: [m]
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
     },
+}
+
+runspecs_integration_2 = runspecs_integration_1 | {
+    "constants": runspecs_integration_1["constants"]
+    | {
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
+        "INT_HEIGHT": 15,
+        "PERM": 5e-13 * units.M2_TO_MILIDARCY,
+    }
+}
+
+runspecs_integration_3 = runspecs_integration_1 | {
+    "constants": runspecs_integration_1["constants"]
+    | {
+        "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,
+        "INT_HEIGHT": 20,
+        "PERM": 5e-14 * units.M2_TO_MILIDARCY,
+    }
 }

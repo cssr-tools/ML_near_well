@@ -53,7 +53,7 @@ runspecs_ensemble: dict[str, Any] = {
         # Surface rates for Utsira are 3e4 - 6e5 m^3/d on a perforation length of 38 m.
         # We take similar values on a perforation length of 5 m to obtain a slightly
         # larger pressure gradient.
-        "INJECTION_RATE": 2e5 * SURFACE_DENSITY,  # unit: [kg/d]
+        "INJECTION_RATE": 2.4e5 * SURFACE_DENSITY,  # unit: [kg/d]
         "INJECTION_TIME": 10,  # unit: [d]
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
         "NUM_XCELLS": 50,
@@ -79,23 +79,23 @@ trainspecs: dict[str, Any] = {
 runspecs_integration: dict[str, Any] = {
     "variables": {
         # "GRID_SIZE": [4, 10],
-        "GRID_SIZE": [4, 4, 10, 10, 20, 20, 100],
+        "GRID_SIZE": [5, 5, 10, 10, 20, 20, 100],
         "ML_MODEL_PATH": [
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
-            str((dirname / "nn" / "WI.model")),
+            str(dirname / "nn" / "WI.model"),
             "",
             "",
         ],
         "RUN_NAME": [
-            "125x125m_NN",
-            "125x125m_Peaceman",
-            "62x62m_NN",
-            "62x62m_Peaceman",
-            "25x25m_NN",
-            "25x25m_Peaceman",
+            "100x100m_NN",
+            "100x100m_Peaceman",
+            "52x52m_NN",
+            "52x52m_Peaceman",
+            "27x27m_NN",
+            "27x27m_Peaceman",
             "5x5m_Peaceman",
         ],
     },
@@ -103,7 +103,7 @@ runspecs_integration: dict[str, Any] = {
     | {
         "PERM": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "RESERVOIR_SIZE": 1000,  # unit: [m]
+        "RESERVOIR_SIZE": 1100,  # unit: [m]
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
     },

@@ -8,7 +8,13 @@ import numpy as np
 import seaborn as sns
 from pyopmnearwell.ml import analysis, ensemble, integration, nn, utils
 from pyopmnearwell.utils import formulas, units
-from runspecs import runspecs_ensemble, runspecs_integration, trainspecs
+from runspecs import (
+    runspecs_ensemble,
+    runspecs_integration_1,
+    runspecs_integration_2,
+    runspecs_integration_3,
+    trainspecs,
+)
 from tensorflow import keras
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
@@ -26,12 +32,16 @@ utils.enable_determinism(SEED)
 ensemble_dir: pathlib.Path = dirname / "ensemble"
 data_dir: pathlib.Path = dirname / "dataset"
 nn_dir: pathlib.Path = dirname / "nn"
-integration_dir: pathlib.Path = dirname / "integration"
+integration_dir_1: pathlib.Path = dirname / "integration_1"
+integration_dir_2: pathlib.Path = dirname / "integration_2"
+integration_dir_3: pathlib.Path = dirname / "integration_3"
 
 ensemble_dir.mkdir(parents=True, exist_ok=True)
 data_dir.mkdir(parents=True, exist_ok=True)
 nn_dir.mkdir(parents=True, exist_ok=True)
-integration_dir.mkdir(parents=True, exist_ok=True)
+integration_dir_1.mkdir(parents=True, exist_ok=True)
+integration_dir_2.mkdir(parents=True, exist_ok=True)
+integration_dir_3.mkdir(parents=True, exist_ok=True)
 
 # Run ensemble and extract data.
 if False:
@@ -58,7 +68,7 @@ if False:
 
 
 # Create dataset.
-if True:
+if False:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -68,8 +78,8 @@ if True:
         num_cells=runspecs_ensemble["constants"]["NUM_XCELLS"] - 1,
     ) * formulas.pyopmnearwell_correction(2 * math.pi / 6)
     # Injection rate is flow rate at zeroth x cell. To use it in coarse scale
-    # simulations in OPM, convert to convert to the right radial angle (ensemble
-    # simulation run only on 60° instead of 360°) and to per seconds.
+    # simulations in OPM, convert to the right radial angle (ensemble simulation run
+    # only on 60° instead of 360°) and from per day to per seconds.
     WI: np.ndarray = ensemble.calculate_WI(
         data[..., 0], data[..., 0, 1] * 6 * units.Q_per_day_to_Q_per_seconds
     )[0]
@@ -114,7 +124,7 @@ if True:
         )
 
 # Train model.
-if True:
+if False:
     tune_and_train(
         trainspecs,
         data_dir,
@@ -126,7 +136,7 @@ if True:
     )
 
 # Do some plotting of results and analysis.
-if True:
+if False:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -158,51 +168,63 @@ if True:
 # Integrate into OPM.
 if True:
     integration.recompile_flow(
-        (nn_dir / "scalings.csv"),
-        runspecs_integration["constants"]["OPM"],
+        nn_dir / "scalings.csv",
+        runspecs_integration_1["constants"]["OPM"],
         dirname / "standardwell_impl.mako",
         dirname / "standardwell.hpp",
     )
+    # integration.run_integration(
+    #     runspecs_integration_1,
+    #     integration_dir_1,
+    #     dirname / "integration.mako",
+    # )
     integration.run_integration(
-        runspecs_integration,
-        integration_dir,
-        (dirname / "integration.mako"),
+        runspecs_integration_2,
+        integration_dir_2,
+        dirname / "integration.mako",
     )
+    integration.run_integration(
+        runspecs_integration_3,
+        integration_dir_3,
+        dirname / "integration.mako",
+    )
+
 
 # Plot results.
 if True:
-    summary_files: list[pathlib.Path] = [
-        integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
-        integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
-        integration_dir / "run_2" / "output" / "43X43M_NN.SMSPEC",
-        integration_dir / "run_4" / "output" / "21X21M_NN.SMSPEC",
-        integration_dir / "run_1" / "output" / "100X100M_PEACEMAN.SMSPEC",
-        integration_dir / "run_3" / "output" / "43X43M_PEACEMAN.SMSPEC",
-        integration_dir / "run_5" / "output" / "21X21M_PEACEMAN.SMSPEC",
-    ]
-    labels: list[str] = [
-        "Fine-scale benchmark",
-        "125x125m NN",
-        "62.5x62.5m NN",
-        "25x25m NN",
-        "125x125m Peaceman",
-        "62.5x62.5m Peaceman",
-        "25x25m Peaceman",
-    ]
-    colors: list[str] = (
-        ["black"]
-        + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
-        + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
-    )
-    linestyles: list[str] = [
-        "solid",
-        "dashed",
-        "dashed",
-        "dashed",
-        "dotted",
-        "dotted",
-        "dotted",
-    ]
-    read_and_plot_bhp(
-        summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
-    )
+    for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
+        summary_files: list[pathlib.Path] = [
+            integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
+            integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
+            integration_dir / "run_2" / "output" / "52X52M_NN.SMSPEC",
+            integration_dir / "run_4" / "output" / "27X27M_NN.SMSPEC",
+            integration_dir / "run_1" / "output" / "100X100M_PEACEMAN.SMSPEC",
+            integration_dir / "run_3" / "output" / "52X52M_PEACEMAN.SMSPEC",
+            integration_dir / "run_5" / "output" / "27X27M_PEACEMAN.SMSPEC",
+        ]
+        labels: list[str] = [
+            "Fine-scale benchmark",
+            "100x100m NN",
+            "52x52m NN",
+            "27x27m NN",
+            "100x100m Peaceman",
+            "52x52m Peaceman",
+            "27x27m Peaceman",
+        ]
+        colors: list[str] = (
+            ["black"]
+            + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
+            + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
+        )
+        linestyles: list[str] = [
+            "solid",
+            "dashed",
+            "dashed",
+            "dashed",
+            "dotted",
+            "dotted",
+            "dotted",
+        ]
+        read_and_plot_bhp(
+            summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
+        )

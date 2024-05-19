@@ -120,6 +120,7 @@ if False:
             fixed_param_index=10,  # Plot for time step 10.
             radius_index=1,
             permeability_index=1,
+            y_param="WI_log",
         )
         # Plot data WI vs time.
         plot_member(
@@ -133,6 +134,7 @@ if False:
             fixed_param_index=5,  # Plot for radius 5.
             radius_index=1,
             permeability_index=1,
+            y_param="WI_log",
         )
 
 # Train model and do some plotting of results and analysis.
@@ -161,6 +163,7 @@ if False:
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
+            y_param="WI_log",
         )
         # Plot NN WI and data WI vs time.
         plot_member(
@@ -177,6 +180,7 @@ if False:
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
+            y_param="WI_log",
         )
     outputs, inputs = analysis.sensitivity_analysis(model)
     analysis.plot_analysis(

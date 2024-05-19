@@ -1,3 +1,4 @@
+import math
 import pathlib
 import sys
 from typing import Any
@@ -18,6 +19,9 @@ from utils import full_ensemble, plot_member, read_and_plot_bhp, tune_and_train
 
 # Set seaborn style.
 sns.set_theme(context="paper", style="whitegrid")
+
+SEED: int = 19123
+utils.enable_determinism(SEED)
 
 # Structure directories.
 ensemble_dir: pathlib.Path = dirname / "ensemble"
@@ -59,18 +63,19 @@ if False:
             # ``METRIC`` mode) i.e., the input to the neural network will be in [m^2].
             "PERMX": units.MILIDARCY_TO_M2,
         },
+        seed=SEED,
     )
     np.save(str(ensemble_dir / "features"), extracted_data)
 
 # Upscale and create dataset.
-if False:
+if True:
     extracted_data = np.load(str(ensemble_dir / "features.npy"))
     upscaler = CO2_2D_Upscaler(
         extracted_data,
         runspecs_ensemble,
         data_dim=5,  # Dimension of a single datapoint.
     )
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=3, step_size_t=3)
+    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=5, step_size_t=2)
 
     # Remove WI_analytical for training.
     if False:
@@ -108,23 +113,22 @@ if False:
             x_param="time",
             comparison_param="layer",
             final_time=runspecs_ensemble["constants"]["INJECTION_TIME"],
-            # TODO: What does the fixed param represent?
-            fixed_param_index=10,  # Plot for time step 10. -> False
+            fixed_param_index=5,  # Plot for radius 5.
             radius_index=1,
             permeability_index=1,
         )
 
 # Train model and do some plotting of results and analysis.
-if False:
-    tune_and_train(
-        trainspecs,
-        data_dir,
-        nn_dir,
-        max_trials=3,
-        lr=1e-3,
-        epochs=5000,
-        executions_per_trial=1,
-    )
+if True:
+    # tune_and_train(
+    #     trainspecs,
+    #     data_dir,
+    #     nn_dir,
+    #     max_trials=15,
+    #     lr=5e-4,
+    #     epochs=5000,
+    #     executions_per_trial=1,
+    # )
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -150,7 +154,7 @@ if False:
             x_param="time",
             comparison_param="layer",
             final_time=runspecs_ensemble["constants"]["INJECTION_TIME"],
-            fixed_param_index=10,  # Plot for time step 10.
+            fixed_param_index=5,  # Plot for radius 5.
             radius_index=1,
             permeability_index=1,
             model=model,
@@ -170,9 +174,9 @@ if False:
     )
 
 # Integrate into OPM.
-if False:
+if True:
     integration.recompile_flow(
-        (nn_dir / "scalings.csv"),
+        nn_dir / "scalings.csv",
         runspecs_integration["constants"]["OPM"],
         dirname / "standardwell_impl.mako",
         dirname / "standardwell.hpp",
@@ -180,28 +184,28 @@ if False:
     integration.run_integration(
         runspecs_integration,
         integration_dir,
-        (dirname / "integration.mako"),
+        dirname / "integration.mako",
     )
 
 # Plot results.
 if True:
     summary_files: list[pathlib.Path] = [
         integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
-        integration_dir / "run_0" / "output" / "125X125M_NN.SMSPEC",
-        integration_dir / "run_2" / "output" / "62X62M_NN.SMSPEC",
-        integration_dir / "run_4" / "output" / "25X25M_NN.SMSPEC",
-        integration_dir / "run_1" / "output" / "125X125M_PEACEMAN.SMSPEC",
-        integration_dir / "run_3" / "output" / "62X62M_PEACEMAN.SMSPEC",
-        integration_dir / "run_5" / "output" / "25X25M_PEACEMAN.SMSPEC",
+        integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
+        integration_dir / "run_2" / "output" / "52X52M_NN.SMSPEC",
+        integration_dir / "run_4" / "output" / "27X27M_NN.SMSPEC",
+        integration_dir / "run_1" / "output" / "100X100M_PEACEMAN.SMSPEC",
+        integration_dir / "run_3" / "output" / "52X52M_PEACEMAN.SMSPEC",
+        integration_dir / "run_5" / "output" / "27X27M_PEACEMAN.SMSPEC",
     ]
     labels: list[str] = [
         "Fine-scale benchmark",
-        "125x125m NN",
-        "62.5x62.5m NN",
-        "25x25m NN",
-        "125x125m Peaceman",
-        "62.5x62.5m Peaceman",
-        "25x25m Peaceman",
+        "100x100m NN",
+        "52x52m NN",
+        "27x27m NN",
+        "100x100m Peaceman",
+        "52x52m Peaceman",
+        "27x27m Peaceman",
     ]
     colors: list[str] = (
         ["black"]

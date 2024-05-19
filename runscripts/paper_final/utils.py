@@ -23,9 +23,12 @@ from tensorflow import keras
 
 Y_AXIS_UNITS: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
+    "WI_log": r"[m^4 \cdot s/kg]",
     "bhp": "[Pa]",
     "perm": "[mD]",
 }
+
+LABEL: dict[str, str] = {"WI": "WI", "WI_log": "WI", "p_w": "p_w"}
 
 X_AXIS_UNITS: dict[str, str] = {"time": "[d]", "radius": "[m]"}
 
@@ -572,9 +575,9 @@ def plot_member(
 
     elif y_param == "WI_log":
         # Rescale WI if it was log for training.
-        y_values_data_member = WI_data_member**10
-        y_values_analytical_member = WI_analytical_member**10
-        y_values_nn_member = WI_nn_member**10
+        y_values_data_member = 10**WI_data_member
+        y_values_analytical_member = 10**WI_analytical_member
+        y_values_nn_member = 10**WI_nn_member
 
     # Note that all ``plotted_value_data_...`` have  shape
     # ``(num_timesteps, num_layers, num_xcells, :)``. Depending on the function
@@ -639,21 +642,21 @@ def plot_member(
         ax.scatter(
             x_values,
             y_values_data_member[num_comp],
-            label=rf"{comparison_param} {num_comp}: ${y_param}$ data, $\mathbf{{k}}: {permeability * units.M2_TO_MILIDARCY:.2f}\, {Y_AXIS_UNITS['perm']}$",
+            label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ data, $\mathbf{{k}}: {permeability * units.M2_TO_MILIDARCY:.2f}\, {Y_AXIS_UNITS['perm']}$",
             color=color,
         )
         if plot_nn:
             ax.plot(
                 x_values,
                 tf.squeeze(y_values_nn_member[num_comp]),
-                label=rf"{comparison_param} {num_comp}: ${y_param}$ NN",
+                label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ NN",
                 color=color,
             )
         if WI_analytical_index is not None:
             ax.plot(
                 x_values,
                 y_values_analytical_member[num_comp],
-                label=rf"{comparison_param} {num_comp}: $y_param$ analytical",
+                label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ analytical",
                 color=color,
                 linestyle="-",
             )
@@ -664,9 +667,9 @@ def plot_member(
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
     ax.set_xlabel(rf"${x_param}\, {X_AXIS_UNITS[x_param]}$")
-    ax.set_ylabel(rf"${y_param}\, {Y_AXIS_UNITS[y_param]}$")
+    ax.set_ylabel(rf"${LABEL[y_param]}\, {Y_AXIS_UNITS[y_param]}$")
     ax.set_title(
-        rf"${y_param}$ plotted vs {x_param} for various {comparison_param}s"
+        rf"${LABEL[y_param]}$ plotted vs {x_param} for various {comparison_param}s"
         + f" at {COMP_INVERSE[comparison_param][x_param]} {fixed_param_index}"
     )
 

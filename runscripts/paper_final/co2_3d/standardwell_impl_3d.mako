@@ -2697,7 +2697,9 @@ namespace Opm
                                             feature_max
                                             ));
         // Network input is based on m^2 perm, but log10
-        const auto analytical_PI_scaled = Value(scaleFunction(log10(analytical_PI),
+        // NOTE: We forgot to adjust to upscale the cell height when creating the
+        // dataset, thus we downscale the analytical PI by the factor (5) we forgot
+        const auto analytical_PI_scaled = Value(scaleFunction(log10(analytical_PI / 5),
                                             xmin[${len(xmin)} - 1],
                                             xmax[${len(xmin)} - 1],
                                             feature_min,

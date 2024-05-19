@@ -159,6 +159,46 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# OPM Flow deck files
+*.DATA
+DX.INC
+DY.INC
+GEOLOGY.INC
+MULTPV.INC
+REGIONS.INC
+TABLES.INC
+CAKE.INC
+
+
+# OPM Flow results
+*.EGRID
+*.SMSPEC
+*.UNRST
+*.UNSMRY
+*.DBG
+*.PRT
+*.INIT
+
+# pyopmnearwell files
+angle.npy
+ny.npy
+position.npy
+radius.npy
+schedule.npy
+xspace.npy
+zspace.npy
+saturation_functions.py
+
+# ML_near_well results
+*.png
+*.svg
+*.pickle
+scales.csv
+bestmodel*
+finalmodel*
+WI.model
+checkpoint
+*tfevents*
 
 # Data generated from runscripts
 runscripts/**/*.rsp
@@ -166,32 +206,3 @@ runscripts/**/dataset*/
 runscripts/**/ensemble*/
 runscripts/**/integration*/
 runscripts/**/nn*/
-
-# Data generated from old runscript files
-runscripts/outdated/
-runscripts/ml_near_well_model/2023-08-11_rnn_well_model/*/
-
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_CO2/*/
-!runscripts/ml_near_well_model/2023-08-17_ml_well_model_CO2/tests*/
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_CO2/tests*/*.txt
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_CO2/tests*/*/
-
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_H2O/*/
-!runscripts/ml_near_well_model/2023-08-17_ml_well_model_H2O/tests*/
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_H2O/tests*/*.txt
-runscripts/ml_near_well_model/2023-08-17_ml_well_model_H2O/tests*/*/
-
-runscripts/ml_near_well_model/2023-08-21_ml_well_model_CO2_3_layers/*/
-!runscripts/ml_near_well_model/2023-08-21_ml_well_model_CO2_3_layers/tests*/
-runscripts/ml_near_well_model/2023-08-21_ml_well_model_CO2_3_layers/tests*/*.txt
-runscripts/ml_near_well_model/2023-08-21_ml_well_model_CO2_3_layers/tests*/*/
-
-runscripts/ml_near_well_model/2023-08-24_ml_well_model_CO2_sequential/*/
-!runscripts/ml_near_well_model/2023-08-24_ml_well_model_CO2_sequential/tests*/
-runscripts/ml_near_well_model/2023-08-24_ml_well_model_CO2_sequential/tests*/*.txt
-runscripts/ml_near_well_model/2023-08-24_ml_well_model_CO2_sequential/tests*/*/
-
-runscripts/ml_near_well_model/2023-09-01_ml_well_model_H2O/*/
-!runscripts/ml_near_well_model/2023-09-01_ml_well_model_H2O/tests*/
-runscripts/ml_near_well_model/2023-09-01_ml_well_model_H2O/tests*/*.txt
-runscripts/ml_near_well_model/2023-09-01_ml_well_model_H2O/tests*/*/

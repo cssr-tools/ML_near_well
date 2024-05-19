@@ -128,7 +128,7 @@ if False:
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
 # Plot some WIs.
-if False:
+if True:
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
@@ -149,6 +149,7 @@ if False:
             fixed_param_index=10,  # Plot for time step 10.
             radius_index=FEATURE_TO_INDEX["radius"],
             permeability_index=FEATURE_TO_INDEX["permeability"],
+            y_param="WI_log",
         )
         # Plot data WI vs time.
         plot_member(
@@ -162,6 +163,7 @@ if False:
             fixed_param_index=3,  # Plot for radius 3.
             radius_index=FEATURE_TO_INDEX["radius"],
             permeability_index=FEATURE_TO_INDEX["permeability"],
+            y_param="WI_log",
         )
 
 # Train model and do some plotting of results and analysis.
@@ -176,7 +178,7 @@ if False:
         executions_per_trial=1,
     )
 
-if False:
+if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
         runspecs_ensemble,
@@ -201,6 +203,7 @@ if False:
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
+            y_param="WI_log",
         )
         # Plot NN WI and data WI vs time.
         plot_member(
@@ -217,15 +220,16 @@ if False:
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
+            y_param="WI_log",
         )
-    outputs, inputs = analysis.sensitivity_analysis(model)
-    analysis.plot_analysis(
-        outputs,
-        inputs,
-        nn_dir / "sensitivity_analysis",
-        feature_names=trainspecs["features"],
-        legend=False,
-    )
+    # outputs, inputs = analysis.sensitivity_analysis(model)
+    # analysis.plot_analysis(
+    #     outputs,
+    #     inputs,
+    #     nn_dir / "sensitivity_analysis",
+    #     feature_names=trainspecs["features"],
+    #     legend=False,
+    # )
 
 # Integrate into OPM.
 if False:
@@ -284,7 +288,7 @@ if False:
 
 
 # Plot results.
-if True:
+if False:
     for j, (savedir_3d, savedir_2d) in enumerate(
         zip(
             [

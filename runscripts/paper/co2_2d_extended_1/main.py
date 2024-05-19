@@ -18,6 +18,9 @@ from utils import full_ensemble, plot_member, tune_and_train
 # Set seaborn style.
 sns.set_theme(context="paper", style="whitegrid")
 
+SEED: int = 19123
+utils.enable_determinism(SEED)
+
 # Structure directories.
 ensemble_dir: pathlib.Path = dirname / "ensemble"
 data_dir: pathlib.Path = dirname / "dataset"
