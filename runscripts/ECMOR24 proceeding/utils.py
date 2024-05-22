@@ -157,8 +157,6 @@ def tune_and_train(
 ) -> None:
     """Tune hyperparameters and train with the best model.
 
-    _extended_summary_
-
     Note:
         - If ``trainspecs["percentage_loss"] == True``, the relative loss (relative to
           target) is only applied during training but not during tuning. This does not
@@ -188,7 +186,7 @@ def tune_and_train(
 
     """
     # Create datasets and check that they are not empty.
-    train_data, val_data, test_data = nn.scale_and_prepare_dataset(
+    train_data, val_data, test_data = nn.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
         feature_names=trainspecs["features"],
         savepath=nn_dirname,
@@ -232,7 +230,7 @@ def tune_and_train(
     model, tuner = nn.tune(
         len(trainspecs["features"]),
         kwargs.get("noutputs", 1),
-        train_data,
+        train_data,  #
         val_data,
         nn_dirname,
         sample_weight=sample_weight,
@@ -263,8 +261,6 @@ def just_train(
 ) -> None:
     """Train a given model without tuning.
 
-    _extended_summary_
-
     Args:
         trainspecs (dict[str, Any]): Dictionary containing at least the following keys:
             -
@@ -279,7 +275,7 @@ def just_train(
             - lr (float): Default is 1e-4.
 
     """
-    train_data, val_data, test_data = nn.scale_and_prepare_dataset(
+    train_data, val_data, test_data = nn.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
         feature_names=trainspecs["features"],
         savepath=nn_dirname,
@@ -408,6 +404,9 @@ def plot_member(
     ``plotted_value`` (y-axis) is plotted against ``x_parameter`` (x-axis). Values from
     all ``comparison_parameter`` are plotted in the same plot.
 
+
+    Note: This function does way too much and is written in a terribly complicated way.
+
     Args:
         features (np.ndarray): The input features.
         WI_data (np.ndarray): Data-based WI, i.e., targets.
@@ -433,6 +432,7 @@ def plot_member(
             - final_time (float): The final time. Defaults to None.
             - radius_index (int): The index of the radius. Defaults to None.
             - permeability_index (int): The index of the permeability. Defaults to None.
+            - permeability_unit (Literal["mD", "m2"]): Defaults to "m2".
 
     Returns:
         None
@@ -638,11 +638,16 @@ def plot_member(
                 permeability = 10**permeability
         else:
             permeability = math.nan
+        if kwargs.get("permeability_unit", "m2") == "m2":
+            permeability_str: str = f"{permeability:.2E}"
+        elif kwargs.get("permeability_unit", "m2") == "mD":
+            permeability *= units.M2_TO_MILIDARCY
+            permeability_str = f"{permeability:.2f}"
 
         ax.scatter(
             x_values,
             y_values_data_member[num_comp],
-            label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ data, $\mathbf{{k}}: {permeability * units.M2_TO_MILIDARCY:.2f}\, {Y_AXIS_UNITS['perm']}$",
+            label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ data, $\mathbf{{k}}: {permeability_str}\, {Y_AXIS_UNITS['perm']}$",
             color=color,
         )
         if plot_nn:
@@ -743,6 +748,18 @@ def bhp_error(
     savepath: str | pathlib.Path,
     reference_index: int = 0,
 ) -> None:
+    """Reads the bottom hole pressure (BHP) data from summary files and computes the
+    error w.r.t. a reference solution.
+
+    Both the maximum and mean error are computed and stored to ``savepath``
+
+    Args:
+        sum_files (list[pathlib.Path]): List of summary files.
+        savepath (str | pathlib.Path): Filepath to save results.
+        reference_index (int, optional): Index of the summary file that is used as a
+            reference solution. Defaults to 0.
+
+    """
     # Ensure ``savepath`` is a ``pathlib.Path`` object.
     savepath = pathlib.Path(savepath)
 

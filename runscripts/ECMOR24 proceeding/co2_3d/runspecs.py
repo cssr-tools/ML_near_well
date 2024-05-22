@@ -15,11 +15,9 @@ CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 """
 
 import pathlib
-import random
 from typing import Any
 
-import numpy as np
-from pyopmnearwell.utils import formulas, units
+from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 

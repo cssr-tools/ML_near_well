@@ -87,18 +87,28 @@ NUM_INPUTS: int = 3
 
 
 class MockEclSum:
-    # Mocking the EclSum class and its methods
+    """Mock the EclSum class and its ``get_values`` method."""
+
     def __init__(self, file_path):
         pass
 
-    def get_values(self, key, report_only):
+    def get_values(self, key: str, report_only):
+        """Return 10 random values for the "WBHP:INJ0" key and 10 linear values for the
+        "TIME" key.
+
+        Args:
+            key (str): Implemented for "WBHP:INJ0" and "TIME".
+            report_only (_type_): Dummy.
+
+        Returns:
+            _type_: _description_
+        """
         if key == "WBHP:INJ0":
             return np.random.rand(10)
         elif key == "TIME":
             return np.linspace(0, 1, 10)
 
 
-# @mock.patch("ecl.EclSum", MockEclSum)
 @mock.patch("ecl.summary.ecl_sum.EclSum", MockEclSum)
 @pytest.mark.parametrize(
     ["sum_files", "labels", "colors", "linestyles"],

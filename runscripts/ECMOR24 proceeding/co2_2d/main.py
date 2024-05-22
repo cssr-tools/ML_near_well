@@ -1,13 +1,11 @@
-import math
 import pathlib
 import sys
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from pyopmnearwell.ml import analysis, ensemble, integration, nn, utils
-from pyopmnearwell.utils import formulas, units
+from pyopmnearwell.ml import analysis, ensemble, integration, utils
+from pyopmnearwell.utils import units
 from runspecs import (
     runspecs_ensemble,
     runspecs_integration_1,
