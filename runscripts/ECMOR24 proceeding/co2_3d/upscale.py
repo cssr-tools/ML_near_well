@@ -193,8 +193,9 @@ class CO2_3D_upscaler(BaseUpscaler):
         assert (
             feature_lst[-1].shape == self.single_feature_shape
         ), "Total injected volume feature has wrong shape."
-        # Get geometrical part of WI.
-        cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4)
+        # Get geometrical part of WI. Upscale cell heights to coarse cell grids. Each
+        # layer is one layer of coarse cells.
+        cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4) * (self.runspecs["constants"]["HEIGHT"] / self.runspecs["constants"]["NUM_LAYERS"])
         feature_lst.append(
             self.get_analytical_PI(  # type: ignore
                 permeabilities=feature_lst[2],

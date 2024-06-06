@@ -346,8 +346,8 @@ if True:
         )
         colors: list[str] = (
             ["black"]
-            + list(plt.cm.Blues(np.linspace(0.3, 0.7, 3)))  # type: ignore
-            + list(plt.cm.Greys(np.linspace(0.3, 0.7, 3)))  # type: ignore
+            + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
+            + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
         )
         linestyles: list[str] = ["solid"] + ["dashed"] * 3 + ["dotted"] * 3
         read_and_plot_bhp(

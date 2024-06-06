@@ -6,13 +6,17 @@ fine-scale ensemble simulations of the near-well region under differing flow reg
 This novel approach allows for flexible and accurate modeling of transient and
 multiphase effects.
 
-The accompanying paper is [*A machine-learned near-well model in OPM Flow*]().
+The accompanying paper is [*A machine-learned near-well model in OPM Flow*](), to be
+published later in 2024.
 
 The ensemble simulations as well as tests of the final model are run in the open-source
 reservoir simulator OPM Flow. In addition, our code uses the
 [pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package for near-well
-ensemble simulations and model training and the [OPM Flow - neural network framework](https://github.com/fractalmanifold/ml_integration2opm)
+ensemble simulations and model training and the [OPM Flow - neural network framework]()
 for integration of neural networks into OPM Flow. 
+
+**Note:** The latter is not publicly available yet (as of 06.06.2024), without it the
+code in this repository will only run partly. As soon as everything is available, this note will be removed.
 
 ![Figure]
 
@@ -79,8 +83,8 @@ Alternatively, you can run each of the examples individually, e.g.,:
 cd examples/h2o_extended
 python main.py
 ```
-Results 1, 2, and 3 in the paper correspond to ``h2o_extended``, ``co2_2d_extended_2``,
-and ``co2_3d_extended``.
+Results 1, 2, and 3 in the paper correspond to ``h2o``, ``co2_2d``,
+and ``co2_3d``.
 
 # Citing
 If you use either all or part of of the code in this repository, we kindly ask you to
