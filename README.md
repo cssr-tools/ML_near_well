@@ -21,7 +21,8 @@ code in this repository will only run partly. As soon as everything is available
 ![Figure]
 
 # Installation
-TODO: Fix installation steps.
+**Note:** Everything was tested on ``WSL2`` with an ``ubuntu 20.02`` installation and
+``python 3.8.10``. 
 1. Create a virtual environment (e.g., with ``conda``) and install the dependencies with
    ``pip install -r requirements.txt``.
 2. Clone https://github.com/cssr-tools/pyopmnearwell/tree/development, go to the local
@@ -31,13 +32,13 @@ TODO: Fix installation steps.
 4. Build OPM with ML integration from source
    https://github.com/fractalmanifold/ml_integration2opm/tree/main (needed to run the
    integration scripts).
-5. Update the paths to OPM and OPM with ML integration in the runscripts.
+5. Clone this repo ``git clone ...``.
+6. Update the paths to OPM and OPM with ML integration in the runscripts.
 ```
-h2o_extended/runspecs.py
-co2_2d_extended/runspecs.py
-co2_3d_extended/runspecs.py
+h2o/runspecs.py
+co2_2d/runspecs.py
+co2_3d/runspecs.py
 ```
-6. Clone this repo ``git clone ...``.
 
 # Usage
 You can reproduce the paper results as described below. To create and integrate your own
