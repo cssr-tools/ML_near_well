@@ -10,14 +10,9 @@ from pyopmnearwell.ml import analysis, ensemble, integration, utils
 from pyopmnearwell.utils import units
 from runspecs import (
     runspecs_ensemble,
-    runspecs_integration_2D_1,
-    runspecs_integration_2D_2,
-    runspecs_integration_2D_3,
-    runspecs_integration_2D_4,
     runspecs_integration_3D_and_Peaceman_1,
     runspecs_integration_3D_and_Peaceman_2,
     runspecs_integration_3D_and_Peaceman_3,
-    runspecs_integration_3D_and_Peaceman_4,
     trainspecs,
 )
 from tensorflow import keras
@@ -46,14 +41,10 @@ ensemble_dir: pathlib.Path = dirname / "ensemble"
 data_dir: pathlib.Path = dirname / "dataset"
 data_stencil_dir: pathlib.Path = dirname / "dataset_stencil"
 nn_dir: pathlib.Path = dirname / "nn"
+
 integration_3d_dir_1: pathlib.Path = dirname / "integration_3D_and_Peaceman_1"
-integration_2d_dir_1: pathlib.Path = dirname / "integration_2D_1"
 integration_3d_dir_2: pathlib.Path = dirname / "integration_3D_and_Peaceman_2"
-integration_2d_dir_2: pathlib.Path = dirname / "integration_2D_2"
 integration_3d_dir_3: pathlib.Path = dirname / "integration_3D_and_Peaceman_3"
-integration_2d_dir_3: pathlib.Path = dirname / "integration_2D_3"
-integration_3d_dir_4: pathlib.Path = dirname / "integration_3D_and_Peaceman_4"
-integration_2d_dir_4: pathlib.Path = dirname / "integration_2D_4"
 
 ensemble_dir.mkdir(parents=True, exist_ok=True)
 data_dir.mkdir(parents=True, exist_ok=True)
@@ -63,11 +54,6 @@ for integration_dir in [
     integration_3d_dir_1,
     integration_3d_dir_2,
     integration_3d_dir_3,
-    integration_3d_dir_4,
-    integration_2d_dir_1,
-    integration_2d_dir_2,
-    integration_2d_dir_3,
-    integration_2d_dir_4,
 ]:
     integration_dir.mkdir(parents=True, exist_ok=True)
 
@@ -243,39 +229,11 @@ if True:
             integration_3d_dir_1,
             integration_3d_dir_2,
             integration_3d_dir_3,
-            integration_3d_dir_4,
         ],
         [
             runspecs_integration_3D_and_Peaceman_1,
             runspecs_integration_3D_and_Peaceman_2,
             runspecs_integration_3D_and_Peaceman_3,
-            runspecs_integration_3D_and_Peaceman_4,
-        ],
-    ):
-        integration.run_integration(
-            runspecs_integration,
-            integration_dir,
-            dirname / "integration.mako",
-        )
-    # Run the 2D ML near-well model for comparison.
-    integration.recompile_flow(
-        dirname / ".." / "co2_2d" / "nn" / "scalings.csv",
-        runspecs_integration_2D_1["constants"]["OPM"],
-        dirname / "standardwell_impl_2d.mako",
-        dirname / "standardwell.hpp",
-    )
-    for integration_dir, runspecs_integration in zip(
-        [
-            integration_2d_dir_1,
-            integration_2d_dir_2,
-            integration_2d_dir_3,
-            integration_2d_dir_4,
-        ],
-        [
-            runspecs_integration_2D_1,
-            runspecs_integration_2D_2,
-            runspecs_integration_2D_3,
-            runspecs_integration_2D_4,
         ],
     ):
         integration.run_integration(
@@ -287,22 +245,11 @@ if True:
 
 # Plot results.
 if True:
-    for j, (savedir_3d, savedir_2d) in enumerate(
-        zip(
-            [
-                integration_3d_dir_1,
-                integration_3d_dir_2,
-                integration_3d_dir_3,
-                integration_3d_dir_4,
-            ],
-            [
-                integration_2d_dir_1,
-                integration_2d_dir_2,
-                integration_2d_dir_3,
-                integration_2d_dir_4,
-            ],
-        )
-    ):
+    for savedir_3d in [
+        integration_3d_dir_1,
+        integration_3d_dir_2,
+        integration_3d_dir_3,
+    ]:
         labels: list[str] = [
             "Fine-scale benchmark",
             "90x90m NN 3D",
@@ -311,39 +258,24 @@ if True:
             "90x90m Peaceman",
             "52x52m Peaceman",
             "27x27m Peaceman",
-            "90x90m NN 2D",
-            "52x52m NN 2D",
-            "27x27m NN 2D",
         ]
-        summary_files: list[pathlib.Path] = (
-            [
-                (
-                    dirname
-                    / savedir_3d
-                    / "run_0"
-                    / "output"
-                    / ("8x8m_Peaceman_more_zcells").upper()
-                ).with_suffix(".SMSPEC"),
-            ]
-            + [
-                (
-                    savedir_3d
-                    / f"run_{i}"
-                    / "output"
-                    / "_".join(labels[i].split(" ")).upper()
-                ).with_suffix(".SMSPEC")
-                for i in range(7)
-            ]
-            + [
-                (
-                    savedir_2d
-                    / f"run_{i}"
-                    / "output"
-                    / "_".join(labels[i + 7].split(" ")).upper()
-                ).with_suffix(".SMSPEC")
-                for i in range(0)
-            ]
-        )
+        summary_files: list[pathlib.Path] = [
+            (
+                dirname
+                / savedir_3d
+                / "run_0"
+                / "output"
+                / ("8x8m_Peaceman_more_zcells").upper()
+            ).with_suffix(".SMSPEC"),
+        ] + [
+            (
+                savedir_3d
+                / f"run_{i}"
+                / "output"
+                / "_".join(labels[i].split(" ")).upper()
+            ).with_suffix(".SMSPEC")
+            for i in range(7)
+        ]
         colors: list[str] = (
             ["black"]
             + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore

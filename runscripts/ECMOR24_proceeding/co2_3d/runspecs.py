@@ -202,7 +202,6 @@ runspecs_integration_2D_1: dict[str, Any] = runspecs_integration_3D_and_Peaceman
             "90x90m_NN_2D",
             "52x52m_NN_2D",
             "27x27m_NN_2D",
-            # "10x10m_NN_2D",
         ],
         "NUM_ZCELLS": [NUM_LAYERS] * 3,
     },
@@ -250,26 +249,4 @@ runspecs_integration_3D_and_Peaceman_3: dict[str, Any] = (
 runspecs_integration_2D_3: dict[str, Any] = runspecs_integration_2D_1 | {
     "name": "integration_2D_3",
     "constants": constants_integration_3,
-}
-
-constants_integration_4: dict[str, Any] = constants_integration_1 | {
-    "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_1": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 1e-11 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 1e-11 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-}
-
-runspecs_integration_3D_and_Peaceman_4: dict[str, Any] = (
-    runspecs_integration_3D_and_Peaceman_1
-    | {
-        "name": "integration_3D_and_Peaceman_4",
-        "constants": constants_integration_4,
-    }
-)
-
-runspecs_integration_2D_4: dict[str, Any] = runspecs_integration_2D_1 | {
-    "name": "integration_2D_4",
-    "constants": constants_integration_4,
 }
