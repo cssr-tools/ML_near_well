@@ -152,9 +152,12 @@ constants_integration_1: dict[str, Any] = runspecs_ensemble["constants"] | {
     "PERM_3": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
     "PERM_4": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
     "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-    "RESERVOIR_SIZE": 1100,  # unit: [m]
     "OPM": OPM_ML,
     "FLOW": FLOW_ML,
+    # Well radius is read from the radius of the innermost grid cell of the ensemble
+    # calculation times the ``pyopmnearwell_correction`` factor to translate from a
+    # triangle to a radial grid. Thus it differs from the ensemble well radius.
+    "WELL_RADIUS": 0.35,  # unit: [m]
 }
 # This key will be used in variables.
 del constants_integration_1["NUM_ZCELLS"]
@@ -164,10 +167,10 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "ensemble_name": "ensemble",
     "nn_name": "trainspecs",
     "variables": {
-        "GRID_SIZE": [90, 6, 10, 20, 6, 10, 20],
+        "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
+        "GRID_SIZE": ["20,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "ML_MODEL_PATH": [
             "",
-            str(dirname / "nn" / "WI.model"),
             str(dirname / "nn" / "WI.model"),
             str(dirname / "nn" / "WI.model"),
             str(dirname / "nn" / "WI.model"),
@@ -192,6 +195,7 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
 runspecs_integration_2D_1: dict[str, Any] = runspecs_integration_3D_and_Peaceman_1 | {
     "name": "integration_2D_1",
     "variables": {
+        "RESERVOIR_SIZE": [1100] * 3,  # unit: [m]
         "GRID_SIZE": [6, 10, 20],  # 55],  # , 55],
         "ML_MODEL_PATH": [
             str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),

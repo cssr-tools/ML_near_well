@@ -58,7 +58,7 @@ FLOW_ML: pathlib.Path = (
 
 
 # Run ensemble and extract data.
-if True:
+if False:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -92,8 +92,9 @@ if True:
         ensemble_dir, step_size_x=5, step_size_t=2, log_WI=True, log_geom_WI=True
     )
 
-    # Remove WI_analytical for training.
-    if True:
+    # Remove analytical_WI for training. ONLY SET TO TRUE IF create_ds IS CALLED WITH
+    # calc_analytical_WI=True!!!
+    if False:
         train_features: np.ndarray = features[..., :-1]
     # Flatten features and targets before storing.
     ensemble.store_dataset(
@@ -135,15 +136,16 @@ if True:
             y_param="WI_log",
         )
 
-# Train model and do some plotting of results and analysis.
+# Tune and train model and do some plotting of results and sensitivity analysis.
 if True:
     tune_and_train(
         trainspecs,
         data_dir,
         nn_dir,
         max_trials=10,
-        lr=5e-4,
-        epochs=5000,
+        lr=1e-3,
+        lr_tune=1e-4,
+        epochs=1000,
         executions_per_trial=1,
     )
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
@@ -214,13 +216,13 @@ if True:
 if True:
     for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
-            integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
-            integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
+            integration_dir / "run_0" / "output" / "5X5M_PEACEMAN.SMSPEC",
+            integration_dir / "run_1" / "output" / "100X100M_NN.SMSPEC",
             integration_dir / "run_2" / "output" / "52X52M_NN.SMSPEC",
-            integration_dir / "run_4" / "output" / "27X27M_NN.SMSPEC",
-            integration_dir / "run_1" / "output" / "100X100M_PEACEMAN.SMSPEC",
-            integration_dir / "run_3" / "output" / "52X52M_PEACEMAN.SMSPEC",
-            integration_dir / "run_5" / "output" / "27X27M_PEACEMAN.SMSPEC",
+            integration_dir / "run_3" / "output" / "27X27M_NN.SMSPEC",
+            integration_dir / "run_4" / "output" / "100X100M_PEACEMAN.SMSPEC",
+            integration_dir / "run_5" / "output" / "52X52M_PEACEMAN.SMSPEC",
+            integration_dir / "run_6" / "output" / "27X27M_PEACEMAN.SMSPEC",
         ]
         labels: list[str] = [
             "Fine-scale benchmark",
@@ -236,15 +238,7 @@ if True:
             + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
             + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
         )
-        linestyles: list[str] = [
-            "solid",
-            "dashed",
-            "dashed",
-            "dashed",
-            "dotted",
-            "dotted",
-            "dotted",
-        ]
+        linestyles: list[str] = ["solid"] + ["dashed"] * 3 + ["dotted"] * 3
         read_and_plot_bhp(
             summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
         )

@@ -66,7 +66,11 @@ class CO2_3D_upscaler(BaseUpscaler):
             runspecs["constants"]["NUM_ZCELLS"] / runspecs["constants"]["NUM_LAYERS"]
         )
         # The well cell and the pore volume cell get disregarded.
-        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 2
+        # NOTE: Because cells smaller than well diameter get disregarded, the actual
+        # number of xcells is one less than specified in the pyopmnearwell deck.
+        # Accounting for this and disregarding the aforementioned cells, substract 3 to
+        # get the actual number of cells with valuable data.
+        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 3
 
         self.data: np.ndarray = data.reshape(
             -1,
@@ -117,12 +121,11 @@ class CO2_3D_upscaler(BaseUpscaler):
         """
         feature_lst: list[np.ndarray] = []
 
+        # Get radii from the ensemble simulation. The correction from triangle to radial
+        # grid is already applied (in ``ensemble.calculate_radii``).
         cell_center_radii, cell_boundary_radii = self.get_radii(
             ensemble_dirname / "runfiles_0" / "preprocessing" / "GRID.INC"
         )
-        # Apply correction from triangle to radial grid.
-        cell_center_radii *= formulas.pyopmnearwell_correction()
-        cell_boundary_radii *= formulas.pyopmnearwell_correction()
 
         # Save saturations over the entire domain to integrate later on.
         full_saturations: np.ndarray = self.data[..., 1][..., None]
@@ -195,7 +198,10 @@ class CO2_3D_upscaler(BaseUpscaler):
         ), "Total injected volume feature has wrong shape."
         # Get geometrical part of WI. Upscale cell heights to coarse cell grids. Each
         # layer is one layer of coarse cells.
-        cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4) * (self.runspecs["constants"]["HEIGHT"] / self.runspecs["constants"]["NUM_LAYERS"])
+        cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4) * (
+            self.runspecs["constants"]["NUM_ZCELLS"]
+            / self.runspecs["constants"]["NUM_LAYERS"]
+        )
         feature_lst.append(
             self.get_analytical_PI(  # type: ignore
                 permeabilities=feature_lst[2],

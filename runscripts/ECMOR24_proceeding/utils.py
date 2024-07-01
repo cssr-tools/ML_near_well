@@ -245,7 +245,8 @@ def tune_and_train(
         train_data,
         val_data,
         nn_dirname,
-        recompile_model=False,
+        # Recompile the model. Otherwise, the lr is not updated and will equal lr_tune.
+        recompile_model=True,
         sample_weight=sample_weight,
         kerasify=trainspecs["kerasify"],
         **train_dict,

@@ -78,34 +78,37 @@ trainspecs: dict[str, Any] = {
 
 runspecs_integration_1: dict[str, Any] = {
     "variables": {
-        # "GRID_SIZE": [4, 10],
-        "GRID_SIZE": [5, 5, 10, 10, 20, 20, 100],
+        "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
+        "GRID_SIZE": ["20,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "ML_MODEL_PATH": [
-            str(dirname / "nn" / "WI.model"),
             "",
             str(dirname / "nn" / "WI.model"),
-            "",
             str(dirname / "nn" / "WI.model"),
+            str(dirname / "nn" / "WI.model"),
+            "",
             "",
             "",
         ],
         "RUN_NAME": [
-            "100x100m_NN",
-            "100x100m_Peaceman",
-            "52x52m_NN",
-            "52x52m_Peaceman",
-            "27x27m_NN",
-            "27x27m_Peaceman",
             "5x5m_Peaceman",
+            "100x100m_NN",
+            "52x52m_NN",
+            "27x27m_NN",
+            "100x100m_Peaceman",
+            "52x52m_Peaceman",
+            "27x27m_Peaceman",
         ],
     },
     "constants": runspecs_ensemble["constants"]
     | {
         "PERM": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "RESERVOIR_SIZE": 1100,  # unit: [m]
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
+        # Well radius is read from the radius of the innermost grid cell of the ensemble
+        # calculation times the ``pyopmnearwell_correction`` factor to translate from a
+        # triangle to a radial grid. Thus it differs from the ensemble well radius.
+        "WELL_RADIUS": 0.35,  # unit: [m]
     },
 }
 

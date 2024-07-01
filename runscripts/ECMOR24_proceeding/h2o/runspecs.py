@@ -82,6 +82,7 @@ runspecs_integration_1: dict[str, Any] = {
         "INT_HEIGHT": 5,  # unit: [m]
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
         "RESERVOIR_SIZE": 1100,  # unit: [m]
+        "WELL_RADIUS": 0.35,  # unit: [m]
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
     },

@@ -4,12 +4,12 @@ ${FLOW} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --ecl-enable-
 """Set the model parameters"""
 co2store no_disgas_no_diffusion #Model (co2store/h2store)
 cake 60                         #Grid type (radial/cake/cartesian2d/cartesian/cave) and size (theta[in degrees]/theta[in degrees]/width[m]/anynumber(the y size is set equal to the x one))
-${LENGTH} ${HEIGHT}             #Reservoir dimensions [m] (length and height)
-${NUM_XCELLS} ${NUM_ZCELLS} 2             #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
-${2*WELL_RADIUS} 1 0            #Well diameter [m], well transmiscibility (0 to use the computed one internally in Flow), and remove the smaller cells than the well diameter
+${LENGTH} ${int(HEIGHT)}             #Reservoir dimensions [m] (length and height)
+${NUM_XCELLS} ${NUM_ZCELLS} 4             #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
+${2*WELL_RADIUS} 1 1            #Well diameter [m], well transmiscibility (0 to use the computed one internally in Flow), and remove the smaller cells than the well diameter
 ${INIT_PRESSURE} ${INIT_TEMPERATURE}  0 #Pressure [Pa] on the top, uniform temperature [°], and initial phase in the reservoir (0 wetting, 1 non-wetting)
 1e10 1                          #Pore volume multiplier on the boundary [-] (0 to use well producers instead) and deactivate cross flow within the wellbore (see XFLOW in OPM Manual)
-0 5 10                          #Activate perforations [-], number of well perforations [-], and length [m]
+0 5 ${int(HEIGHT)}                          #Activate perforations [-], number of well perforations [-], and length [m]
 ${NUM_LAYERS} 0 0               #Number of layers [-] and hysteresis (1 to activate) and econ for the producer (for h2 models)
 0 0 0 0 0 0 0                   #Initial salt concentration [kg/m3], salt solubility limit [kg/m3], and precipitated salt density [kg/m3] (for saltprec)
 0                               #The function for the reservoir surface

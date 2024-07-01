@@ -48,7 +48,7 @@ for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]
     integration_dir.mkdir(parents=True, exist_ok=True)
 
 # Run ensemble and extract data.
-if True:
+if False:
     data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -72,7 +72,7 @@ if True:
 
 
 # Create dataset.
-if True:
+if False:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -80,7 +80,9 @@ if True:
         (ensemble_dir / "runfiles_0" / "preprocessing" / "GRID.INC"),
         # For some reason only ``NUM_XCELLS - 1`` cells are generated.
         num_cells=runspecs_ensemble["constants"]["NUM_XCELLS"] - 1,
-    ) * formulas.pyopmnearwell_correction(2 * math.pi / 6)
+        triangle_grid=True,
+        theta=2 * math.pi / 6,
+    )
     # Injection rate is flow rate at zeroth x cell. To use it in coarse scale
     # simulations in OPM, convert to the right radial angle (ensemble simulation run
     # only on 60° instead of 360°) and from per day to per seconds.
@@ -127,20 +129,21 @@ if True:
             permeability_index=1,
         )
 
-# Train model.
-if True:
+# Tune and train model.
+if False:
     tune_and_train(
         trainspecs,
         data_dir,
         nn_dir,
         max_trials=20,
         lr=1e-4,
+        lr_tune=1e-4,
         epochs=5000,
-        executions_per_trial=2,
+        executions_per_trial=1,
     )
 
-# Do some plotting of results and analysis.
-if True:
+# Do some plotting of results and sensitivity analysis.
+if False:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -181,6 +184,9 @@ if True:
         [integration_dir_1, integration_dir_2, integration_dir_3],
         [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
     ):
+        # for integration_dir, runspecs_integration in zip(
+        #     [integration_dir_1], [runspecs_integration_1]
+        # ):
         integration.run_integration(
             runspecs_integration,
             integration_dir,
@@ -190,7 +196,9 @@ if True:
 
 # Plot results.
 if True:
-    for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
+    for integration_dir in [
+        integration_dir_1
+    ]:  # , integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
             integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
             integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
@@ -214,15 +222,7 @@ if True:
             + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
             + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
         )
-        linestyles: list[str] = [
-            "solid",
-            "dashed",
-            "dashed",
-            "dashed",
-            "dotted",
-            "dotted",
-            "dotted",
-        ]
+        linestyles: list[str] = ["solid"] + ["dashed"] * 3 + ["dotted"] * 3
         read_and_plot_bhp(
             summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
         )

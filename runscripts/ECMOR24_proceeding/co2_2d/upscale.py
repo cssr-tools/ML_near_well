@@ -48,9 +48,6 @@ class CO2_2D_Upscaler(BaseUpscaler):
 
 
         """
-        # Find out the actual number of ensemble members that ran until the end.
-        self.num_members: int = data.shape[0]
-
         # Compute number of report steps.
         # TODO: This might not work all the time, sometimes it might need to be rounded
         # up?
@@ -60,10 +57,10 @@ class CO2_2D_Upscaler(BaseUpscaler):
         )
 
         # The well cell and the pore volume cell get disregarded in the final dataset.
-        # NOTE: For some reason, the actual number of xcells is one less than specified
-        # in the pyopmnearwell deck. Accounting for this and disregarding the
-        # aforementioned cells, substract 3 to get the actual number of cells with
-        # valuable data.
+        # NOTE: Because cells smaller than well diameter get disregarded, the actual
+        # number of xcells is one less than specified in the pyopmnearwell deck.
+        # Accounting for this and disregarding the aforementioned cells, substract 3 to
+        # get the actual number of cells with valuable data.
         self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 3
         # Fine-scale simulations have a a single layer and are 2D.
         self.num_zcells: int = 1
@@ -82,7 +79,7 @@ class CO2_2D_Upscaler(BaseUpscaler):
         self.data = self.data[..., :-1, :]
 
         # Find out the actual number of ensemble members that ran until the end.
-        self.num_members: int = self.data.shape[0]
+        self.num_members: int = data.shape[0]
         self.single_feature_shape: tuple[int, int, int, int] = (
             self.num_members,
             self.num_timesteps,
@@ -127,13 +124,11 @@ class CO2_2D_Upscaler(BaseUpscaler):
         """
         feature_lst: list[np.ndarray] = []
 
-        # Get radii of cell centers from preprocessing file.
+        # Get radii from the ensemble simulation. The correction from triangle to radial
+        # grid is already applied (in ``ensemble.calculate_radii``).
         cell_center_radii, cell_boundary_radii = self.get_radii(
             ensemble_dirname / "runfiles_0" / "preprocessing" / "GRID.INC"
         )
-        # Apply correction from triangle to radial grid.
-        cell_center_radii *= formulas.pyopmnearwell_correction()
-        cell_boundary_radii *= formulas.pyopmnearwell_correction()
 
         # Get all data and cut well cell and pore volume cell (done automatically by the
         # functions).
