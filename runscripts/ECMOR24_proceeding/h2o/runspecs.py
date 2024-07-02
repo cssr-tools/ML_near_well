@@ -12,7 +12,7 @@ FLOW_ML: pathlib.Path = (
     OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
 )
 
-NUM_MEMBERS: int = 200
+NUM_MEMBERS: int = 500
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
@@ -78,9 +78,9 @@ runspecs_integration_1: dict[str, Any] = {
     },
     "constants": runspecs_ensemble["constants"]
     | {
-        "PERM": 1e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "INT_HEIGHT": 5,  # unit: [m]
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
+        "INT_HEIGHT": 5,  # unit: [m]
+        "PERM": 1e-13 * units.M2_TO_MILIDARCY,
         "RESERVOIR_SIZE": 1100,  # unit: [m]
         "WELL_RADIUS": 0.35,  # unit: [m]
         "OPM": OPM_ML,

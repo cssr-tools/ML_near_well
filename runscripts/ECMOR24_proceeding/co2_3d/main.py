@@ -58,7 +58,7 @@ for integration_dir in [
     integration_dir.mkdir(parents=True, exist_ok=True)
 
 # Run ensemble and extract data.
-if False:
+if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -78,7 +78,7 @@ if False:
     np.save(str(ensemble_dir / "features"), extracted_data)
 
 # Upscale and create dataset.
-if False:
+if True:
     extracted_data: np.ndarray = np.load(str(ensemble_dir / "features.npy"))
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(extracted_data, runspecs_ensemble, 6)
     features, targets = upscaler.create_ds(ensemble_dir, step_size_x=3, step_size_t=3)
@@ -86,7 +86,7 @@ if False:
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
 # Plot some WIs.
-if False:
+if True:
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
@@ -125,7 +125,7 @@ if False:
         )
 
 # Tune and train model.
-if False:
+if True:
     tune_and_train(
         trainspecs,
         data_stencil_dir,
@@ -138,14 +138,14 @@ if False:
     )
 
 # Do some plotting of results and sensitivity analysis.
-if False:
+if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
         data_stencil_dir,
         # A lot of the outer cells got disregarded during upscaling, because the
-        # saturation could not be fully upscaled. -> Only 5 x values.
+        # saturation could not be fully upscaled. -> Only 11 x values.
         num_xvalues=11,
         step_size_t=3,
     )
@@ -192,7 +192,7 @@ if False:
     )
 
 # Integrate into OPM.
-if False:
+if True:
     integration.recompile_flow(
         nn_dir / "scalings.csv",
         runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],

@@ -48,7 +48,7 @@ for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]
     integration_dir.mkdir(parents=True, exist_ok=True)
 
 # Run ensemble and extract data.
-if False:
+if True:
     data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -72,7 +72,7 @@ if False:
 
 
 # Create dataset.
-if False:
+if True:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -130,20 +130,20 @@ if False:
         )
 
 # Tune and train model.
-if False:
+if True:
     tune_and_train(
         trainspecs,
         data_dir,
         nn_dir,
         max_trials=20,
-        lr=1e-4,
+        lr=1e-3,
         lr_tune=1e-4,
         epochs=5000,
         executions_per_trial=1,
     )
 
 # Do some plotting of results and sensitivity analysis.
-if False:
+if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -196,9 +196,7 @@ if True:
 
 # Plot results.
 if True:
-    for integration_dir in [
-        integration_dir_1
-    ]:  # , integration_dir_2, integration_dir_3]:
+    for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
             integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
             integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",

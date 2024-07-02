@@ -89,34 +89,8 @@ if True:
 # Upscale and create dataset.
 if True:
     extracted_data: np.ndarray = np.load(str(ensemble_dir / "features.npy"))
-    # Manually disregard runs that produce zero pressure differences between the
-    # well cell and other grid cells and thus infinite WR. For some reason these were
-    # not stopped during running.
-    extracted_data_per_zcell: np.ndarray = extracted_data.reshape(
-        extracted_data.shape[0],
-        extracted_data.shape[1],
-        runspecs_ensemble["constants"]["NUM_ZCELLS"],
-        -1,
-        extracted_data.shape[3],
-    )
-    invalid_members: list[int] = list(
-        set(
-            np.argwhere(
-                np.expand_dims(extracted_data_per_zcell[..., 0, 0], axis=-1)
-                - extracted_data_per_zcell[..., 1:, 0]
-                == 0
-            )[..., 0]
-        )
-    )
-    extracted_data = np.delete(extracted_data, invalid_members, axis=0)
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(extracted_data, runspecs_ensemble, 6)
     features, targets = upscaler.create_ds(ensemble_dir, step_size_x=3, step_size_t=3)
-
-    # Some WI will be negative for some reason. Remove these.
-    invalid_members = list(set(np.argwhere(targets <= 0)[..., 0]))
-    features = np.delete(features, invalid_members, axis=0)
-    targets = np.delete(targets, invalid_members, axis=0)
-
     ensemble.store_dataset(features, targets, data_dir)
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
@@ -127,8 +101,8 @@ if True:
         trainspecs,
         data_stencil_dir,
         # A lot of the outer cells got disregarded during upscaling, because the
-        # saturation could not be fully upscaled. -> Only 5 x values.
-        num_xvalues=8,
+        # saturation could not be fully upscaled. -> Only 11 x values.
+        num_xvalues=11,
         step_size_t=3,
     )
     for i in range(0, features.shape[0], 20):
@@ -159,18 +133,20 @@ if True:
             y_param="WI_log",
         )
 
-# Train model and do some plotting of results and analysis.
+# Tune and train model.
 if True:
     tune_and_train(
         trainspecs,
         data_stencil_dir,
         nn_dir,
         max_trials=5,
-        lr=1e-4,
+        lr=1e-3,
+        lr_tune=1e-4,
         epochs=1000,
         executions_per_trial=1,
     )
 
+# Do some plotting of results and sensitivity analysis.
 if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
@@ -178,8 +154,8 @@ if True:
         trainspecs,
         data_stencil_dir,
         # A lot of the outer cells got disregarded during upscaling, because the
-        # saturation could not be fully upscaled. -> Only 5 x values.
-        num_xvalues=8,
+        # saturation could not be fully upscaled. -> Only 11 x values.
+        num_xvalues=11,
         step_size_t=3,
     )
     for i in range(0, features.shape[0], 20):

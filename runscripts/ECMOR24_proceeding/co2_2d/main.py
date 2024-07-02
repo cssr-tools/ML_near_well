@@ -58,7 +58,7 @@ FLOW_ML: pathlib.Path = (
 
 
 # Run ensemble and extract data.
-if False:
+if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
