@@ -73,7 +73,7 @@ for integration_dir in [
 ANGLE: float = math.pi / 3
 
 # Run ensemble and extract data.
-if False:
+if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -108,7 +108,7 @@ if True:
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
 # Plot some WIs.
-if False:
+if True:
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
@@ -147,7 +147,7 @@ if False:
         )
 
 # Tune and train model.
-if False:
+if True:
     tune_and_train(
         trainspecs,
         data_stencil_dir,
@@ -160,7 +160,7 @@ if False:
     )
 
 # Do some plotting of results and sensitivity analysis.
-if False:
+if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
         runspecs_ensemble,
@@ -215,24 +215,24 @@ if False:
 
 # Integrate into OPM.
 if True:
-    # integration.recompile_flow(
-    #     nn_dir / "scalings.csv",
-    #     runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
-    #     dirname / "standardwell_impl_3d.mako",
-    #     dirname / "standardwell.hpp",
-    #     local_feature_names=["pressure", "saturation", "permeability"],
-    # )
+    integration.recompile_flow(
+        nn_dir / "scalings.csv",
+        runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
+        dirname / "standardwell_impl_3d.mako",
+        dirname / "standardwell.hpp",
+        local_feature_names=["pressure", "saturation", "permeability"],
+    )
     for integration_dir, runspecs_integration in zip(
         [
-            # integration_3d_dir_1,
+            integration_3d_dir_1,
             integration_3d_dir_2,
-            # integration_3d_dir_3,
+            integration_3d_dir_3,
             integration_3d_dir_4,
         ],
         [
-            # runspecs_integration_3D_and_Peaceman_1,
+            runspecs_integration_3D_and_Peaceman_1,
             runspecs_integration_3D_and_Peaceman_2,
-            # runspecs_integration_3D_and_Peaceman_3,
+            runspecs_integration_3D_and_Peaceman_3,
             runspecs_integration_3D_and_Peaceman_4,
         ],
     ):
@@ -246,9 +246,9 @@ if True:
 # Plot results.
 if True:
     for savedir_3d in [
-        # integration_3d_dir_1,
+        integration_3d_dir_1,
         integration_3d_dir_2,
-        # integration_3d_dir_3,
+        integration_3d_dir_3,
         integration_3d_dir_4,
     ]:
         labels: list[str] = [

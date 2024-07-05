@@ -1,3 +1,4 @@
+import math
 import pathlib
 import sys
 
@@ -13,9 +14,11 @@ from runspecs import (
     runspecs_integration_2D_1,
     runspecs_integration_2D_2,
     runspecs_integration_2D_3,
+    runspecs_integration_2D_4,
     runspecs_integration_3D_and_Peaceman_1,
     runspecs_integration_3D_and_Peaceman_2,
     runspecs_integration_3D_and_Peaceman_3,
+    runspecs_integration_3D_and_Peaceman_4,
     trainspecs,
 )
 from tensorflow import keras
@@ -45,12 +48,22 @@ data_dir: pathlib.Path = dirname / "dataset"
 data_stencil_dir: pathlib.Path = dirname / "dataset_stencil"
 nn_dir: pathlib.Path = dirname / "nn"
 
-integration_3d_dir_1: pathlib.Path = dirname / "integration_3D_and_Peaceman_1"
-integration_3d_dir_2: pathlib.Path = dirname / "integration_3D_and_Peaceman_2"
-integration_3d_dir_3: pathlib.Path = dirname / "integration_3D_and_Peaceman_3"
-integration_2d_dir_1: pathlib.Path = dirname / "integration_2D_1"
-integration_2d_dir_2: pathlib.Path = dirname / "integration_2D_2"
-integration_2d_dir_3: pathlib.Path = dirname / "integration_2D_3"
+integration_3d_dir_1: pathlib.Path = (
+    dirname / runspecs_integration_3D_and_Peaceman_1["name"]
+)
+integration_3d_dir_2: pathlib.Path = (
+    dirname / runspecs_integration_3D_and_Peaceman_2["name"]
+)
+integration_3d_dir_3: pathlib.Path = (
+    dirname / runspecs_integration_3D_and_Peaceman_3["name"]
+)
+integration_3d_dir_4: pathlib.Path = (
+    dirname / runspecs_integration_3D_and_Peaceman_4["name"]
+)
+integration_2d_dir_1: pathlib.Path = dirname / runspecs_integration_2D_1["name"]
+integration_2d_dir_2: pathlib.Path = dirname / runspecs_integration_2D_2["name"]
+integration_2d_dir_3: pathlib.Path = dirname / runspecs_integration_2D_3["name"]
+integration_2d_dir_4: pathlib.Path = dirname / runspecs_integration_2D_4["name"]
 
 ensemble_dir.mkdir(parents=True, exist_ok=True)
 data_dir.mkdir(parents=True, exist_ok=True)
@@ -60,17 +73,27 @@ for integration_dir in [
     integration_3d_dir_1,
     integration_3d_dir_2,
     integration_3d_dir_3,
+    integration_3d_dir_4,
     integration_2d_dir_1,
     integration_2d_dir_2,
     integration_2d_dir_3,
+    integration_2d_dir_4,
 ]:
     integration_dir.mkdir(parents=True, exist_ok=True)
+
+# Angle between both sides of the triangle grid.
+ANGLE: float = math.pi / 3
 
 # Run ensemble and extract data.
 if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
+        # NOTE: To calculate the well index, we take the flow rate at the well under
+        # surface conditions. Cf. section 2.2.1 of A. F. Rasmussen et al., “The Open
+        # Porous Media Flow reservoir simulator,” Computers & Mathematics with
+        # Applications, vol. 81, pp. 159–185, Jan. 2021, doi:
+        # 10.1016/j.camwa.2020.05.014.
         ecl_keywords=["PRESSURE", "SGAS", "FLOGASI+"],
         init_keywords=["PERMX", "DZ"],
         summary_keywords=["FGIT"],
@@ -89,7 +112,9 @@ if True:
 # Upscale and create dataset.
 if True:
     extracted_data: np.ndarray = np.load(str(ensemble_dir / "features.npy"))
-    upscaler: CO2_3D_upscaler = CO2_3D_upscaler(extracted_data, runspecs_ensemble, 6)
+    upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
+        extracted_data, runspecs_ensemble, data_dim=6, angle=ANGLE
+    )
     features, targets = upscaler.create_ds(ensemble_dir, step_size_x=3, step_size_t=3)
     ensemble.store_dataset(features, targets, data_dir)
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
@@ -214,11 +239,13 @@ if True:
             integration_3d_dir_1,
             integration_3d_dir_2,
             integration_3d_dir_3,
+            integration_3d_dir_4,
         ],
         [
             runspecs_integration_3D_and_Peaceman_1,
             runspecs_integration_3D_and_Peaceman_2,
             runspecs_integration_3D_and_Peaceman_3,
+            runspecs_integration_3D_and_Peaceman_4,
         ],
     ):
         integration.run_integration(
@@ -238,11 +265,13 @@ if True:
             integration_2d_dir_1,
             integration_2d_dir_2,
             integration_2d_dir_3,
+            integration_2d_dir_4,
         ],
         [
             runspecs_integration_2D_1,
             runspecs_integration_2D_2,
             runspecs_integration_2D_3,
+            runspecs_integration_2D_4,
         ],
     ):
         integration.run_integration(
@@ -255,8 +284,18 @@ if True:
 # Plot results.
 if True:
     for savedir_3d, savedir_2d in zip(
-        [integration_3d_dir_1, integration_3d_dir_2, integration_3d_dir_3],
-        [integration_2d_dir_1, integration_2d_dir_2, integration_2d_dir_3],
+        [
+            integration_3d_dir_1,
+            integration_3d_dir_2,
+            integration_3d_dir_3,
+            integration_3d_dir_4,
+        ],
+        [
+            integration_2d_dir_1,
+            integration_2d_dir_2,
+            integration_2d_dir_3,
+            integration_2d_dir_4,
+        ],
     ):
         labels: list[str] = [
             "Fine-scale benchmark",
