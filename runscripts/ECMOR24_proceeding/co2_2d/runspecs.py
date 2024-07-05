@@ -6,7 +6,6 @@ Simulation parameters are loosely similar to the Utsira formation, taken from V.
 A. Cavanagh, H. Hansen, B. Nazarian, M. Iding, and P. Ringrose, “Reservoir Modeling of
 CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 
-
 """
 
 import pathlib
@@ -23,9 +22,13 @@ FLOW_ML: pathlib.Path = (
     OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
 )
 
-NUM_MEMBERS: int = 250
 # Surface density of CO2 - calculated with OPM PVT.
 SURFACE_DENSITY: float = 1.86843  # unit [kg/m^3]
+
+##########
+# Ensemble
+##########
+NUM_MEMBERS: int = 250
 
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
@@ -47,8 +50,6 @@ runspecs_ensemble: dict[str, Any] = {
     "constants": {
         # Seabed temperature of 7°C + 35°C/km at 800-1100m depth ~ 40°C
         "INIT_TEMPERATURE": 40,  # unit: [°C]
-        # Porosity ot Utsira formation is 0.34 - 0.36
-        "POROSITY": 0.35,  # unit: [-]
         "SURFACE_DENSITY": SURFACE_DENSITY,  # unit: [kg/m^3]
         # Surface rates for Utsira are 3e4 - 6e5 m^3/d on a perforation length of 38 m.
         # We take similar values on a perforation length of 5 m to obtain a slightly
@@ -56,18 +57,22 @@ runspecs_ensemble: dict[str, Any] = {
         "INJECTION_RATE": 1e6 * SURFACE_DENSITY,  # unit: [kg/d]
         "INJECTION_TIME": 10,  # unit: [d]
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
+        # The well is fully inside the innermost cells, which we consider as the "well"
+        # for easier computation of the data-driven well index. Therefore the well index
+        # for fine-scale simulation and integration differ.
+        "WELL_RADIUS": 0.2,  # unit: [m]
+        # Porosity ot Utsira formation is 0.34 - 0.36
+        "POROSITY": 0.35,  # unit: [-]
         "NUM_XCELLS": 50,
         "LENGTH": 100,
         "HEIGHT": 5,  # unit: [m]
-        # The well is fully inside the innermost cell, which we consider as the "well"
-        # to ensure easier computation. The "well" radius for computation is thus
-        # dependent on the cell size and this value gets disregarded when creating the
-        # dataset.
-        "WELL_RADIUS": 0.25,  # unit: [m]
         "FLOW": FLOW,
     },
 }
 
+##########
+# Training
+##########
 trainspecs: dict[str, Any] = {
     "features": ["pressure", "geometr_WI", "V_tot"],
     "MinMax_scaling": True,
@@ -76,10 +81,13 @@ trainspecs: dict[str, Any] = {
     "permeability_log": False,
 }
 
+#############
+# Integration
+#############
 runspecs_integration_1: dict[str, Any] = {
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
-        "GRID_SIZE": ["20,5,5,5,5", 5, 10, 20, 5, 10, 20],
+        "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "ML_MODEL_PATH": [
             "",
             str(dirname / "nn" / "WI.model"),
@@ -106,9 +114,10 @@ runspecs_integration_1: dict[str, Any] = {
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
         # Well radius is read from the radius of the innermost grid cell of the ensemble
-        # calculation times the ``pyopmnearwell_correction`` factor to translate from a
-        # triangle to a radial grid. Thus it differs from the ensemble well radius.
-        "WELL_RADIUS": 0.35,  # unit: [m]
+        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+        # translate from a triangle to a radial grid. Thus it differs from the ensemble
+        # well radius.
+        "WELL_RADIUS": 0.25,  # unit: [m]
     },
 }
 

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from pyopmnearwell.ml import analysis, ensemble, integration, utils
-from pyopmnearwell.utils import formulas, units
+from pyopmnearwell.utils import units
 from runspecs import (
     runspecs_ensemble,
     runspecs_integration_1,
@@ -47,11 +47,19 @@ nn_dir.mkdir(parents=True, exist_ok=True)
 for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
     integration_dir.mkdir(parents=True, exist_ok=True)
 
+# Angle between both sides of the triangle grid.
+ANGLE: float = math.pi / 3
+
 # Run ensemble and extract data.
 if True:
     data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
+        # NOTE: To calculate the well index, we take the flow rate at the well under
+        # surface conditions. Cf. section 2.2.1 of A. F. Rasmussen et al., “The Open
+        # Porous Media Flow reservoir simulator,” Computers & Mathematics with
+        # Applications, vol. 81, pp. 159–185, Jan. 2021, doi:
+        # 10.1016/j.camwa.2020.05.014.
         ecl_keywords=["PRESSURE", "FLOWATI+"],
         init_keywords=["PERMX", "DZ"],
         recalc_grid=True,
@@ -78,16 +86,17 @@ if True:
     # Get radii and transform from triangle grid to cake grid.
     radii: np.ndarray = ensemble.calculate_radii(  # type: ignore
         (ensemble_dir / "runfiles_0" / "preprocessing" / "GRID.INC"),
-        # For some reason only ``NUM_XCELLS - 1`` cells are generated.
-        num_cells=runspecs_ensemble["constants"]["NUM_XCELLS"] - 1,
+        # The two innermost cells lies fully inside the well and get cut.
+        num_cells=runspecs_ensemble["constants"]["NUM_XCELLS"] - 2,
         triangle_grid=True,
-        theta=2 * math.pi / 6,
+        angle=ANGLE,
     )
     # Injection rate is flow rate at zeroth x cell. To use it in coarse scale
-    # simulations in OPM, convert to the right radial angle (ensemble simulation run
+    # simulations in OPM, convert to the right radial angle (ensemble simulations run
     # only on 60° instead of 360°) and from per day to per seconds.
     WI: np.ndarray = ensemble.calculate_WI(
-        data[..., 0], data[..., 0, 1] * 6 * units.Q_per_day_to_Q_per_seconds
+        data[..., 0],
+        data[..., 0, 1] * (2 * math.pi / ANGLE) * units.Q_per_day_to_Q_per_seconds,
     )[0]
 
     # Truncate well cells. Truncate every time step but the last one.
@@ -198,13 +207,13 @@ if True:
 if True:
     for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
-            integration_dir / "run_6" / "output" / "5X5M_PEACEMAN.SMSPEC",
-            integration_dir / "run_0" / "output" / "100X100M_NN.SMSPEC",
+            integration_dir / "run_0" / "output" / "5X5M_PEACEMAN.SMSPEC",
+            integration_dir / "run_1" / "output" / "100X100M_NN.SMSPEC",
             integration_dir / "run_2" / "output" / "52X52M_NN.SMSPEC",
-            integration_dir / "run_4" / "output" / "27X27M_NN.SMSPEC",
-            integration_dir / "run_1" / "output" / "100X100M_PEACEMAN.SMSPEC",
-            integration_dir / "run_3" / "output" / "52X52M_PEACEMAN.SMSPEC",
-            integration_dir / "run_5" / "output" / "27X27M_PEACEMAN.SMSPEC",
+            integration_dir / "run_3" / "output" / "27X27M_NN.SMSPEC",
+            integration_dir / "run_4" / "output" / "100X100M_PEACEMAN.SMSPEC",
+            integration_dir / "run_5" / "output" / "52X52M_PEACEMAN.SMSPEC",
+            integration_dir / "run_6" / "output" / "27X27M_PEACEMAN.SMSPEC",
         ]
         labels: list[str] = [
             "Fine-scale benchmark",

@@ -12,7 +12,7 @@ FLOW_ML: pathlib.Path = (
     OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
 )
 
-NUM_MEMBERS: int = 500
+NUM_MEMBERS: int = 1000
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
@@ -40,11 +40,17 @@ runspecs_ensemble: dict[str, Any] = {
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
         "NUM_XCELLS": 50,
         "LENGTH": 100,
-        "WELL_RADIUS": 0.25,  # unit: [m]
+        # The well is fully inside the innermost cells, which we consider as the "well"
+        # for easier computation of the data-driven well index. Therefore the well index
+        # for fine-scale simulation and integration differ.
+        "WELL_RADIUS": 0.2,  # unit: [m]
         "FLOW": FLOW,
     },
 }
 
+##########
+# Training
+##########
 trainspecs: dict[str, Any] = {
     "features": ["pressure", "permeability", "height", "radius"],
     "MinMax_scaling": True,
@@ -53,36 +59,43 @@ trainspecs: dict[str, Any] = {
     "permeability_log": False,
 }
 
+#############
+# Integration
+#############
 runspecs_integration_1: dict[str, Any] = {
     "variables": {
-        # "GRID_SIZE": [5, 10, 20],
-        "GRID_SIZE": [5, 5, 10, 10, 20, 20, 100],
+        "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
+        "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "ML_MODEL_PATH": [
-            str(dirname / "nn" / "WI.model"),
             "",
             str(dirname / "nn" / "WI.model"),
-            "",
             str(dirname / "nn" / "WI.model"),
+            str(dirname / "nn" / "WI.model"),
+            "",
             "",
             "",
         ],
         "RUN_NAME": [
-            "100x100m_NN",
-            "100x100m_Peaceman",
-            "52x52m_NN",
-            "52x52m_Peaceman",
-            "27x27m_NN",
-            "27x27m_Peaceman",
             "5x5m_Peaceman",
+            "100x100m_NN",
+            "52x52m_NN",
+            "27x27m_NN",
+            "100x100m_Peaceman",
+            "52x52m_Peaceman",
+            "27x27m_Peaceman",
         ],
     },
     "constants": runspecs_ensemble["constants"]
     | {
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "INT_HEIGHT": 5,  # unit: [m]
-        "PERM": 1e-13 * units.M2_TO_MILIDARCY,
+        "INT_HEIGHT": 7.5,  # unit: [m]
+        "PERM": 2e-13 * units.M2_TO_MILIDARCY,
         "RESERVOIR_SIZE": 1100,  # unit: [m]
-        "WELL_RADIUS": 0.35,  # unit: [m]
+        # Well radius is read from the radius of the innermost grid cell of the ensemble
+        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+        # translate from a triangle to a radial grid. Thus it differs from the ensemble
+        # well radius.
+        "WELL_RADIUS": 0.25,  # unit: [m]
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
     },

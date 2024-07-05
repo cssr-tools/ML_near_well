@@ -1,12 +1,11 @@
 """
-
 Note: We fix the same values as in the CO2 2D example to be able to compare both
 networks. This includes, e.g., fixing the layer height to be 5m which is the same as the
 full height of the reservoir in the 2D example.
 
-Note: The injection time is shorter than in the 2D example to avoid the CO2 overspilling
-into the pore volume cell at the boundary of the near-well simulation.
-
+Note: The injection rate is fixed in the standardwell_impl.mako to calculate the
+total injected gas. If changed in this file, the mako needs to be changed as well (line
+2577).
 
 Simulation parameters are loosely similar to the Utsira formation, taken from V. Singh,
 A. Cavanagh, H. Hansen, B. Nazarian, M. Iding, and P. Ringrose, “Reservoir Modeling of
@@ -29,35 +28,14 @@ FLOW: str = f"{OPM}/build/opm-simulators/bin/flow"
 
 # Fixed values for all runs
 NUM_LAYERS: int = 5
-# Utsira formation has a height of ~300 m and connection length of 38 m (horizontal?).
-# We consider only the area along the connection.
-RESERVOIR_HEIGHT: float = 25.0  # unit: [m]
-# The well is fully inside the innermost cell, which we consider as the "well"
-# to ensure easier computation. The "well" radius for computation is thus
-# dependent on the cell size and this value gets disregarded when creating the
-# dataset.
-WELL_RADIUS: float = 0.25  # unit: [m]
-POROSITY: float = 0.35  # unit: [-]
-
-# Surface rates for Utsira are 3e4 - 6e5 m^3/d on a perforation length of 38 m.
-# We take larger values on a perforation length of 25 m to obtain a slightly
-# larger pressure gradient.
-# NOTE: The injection rate is 5x the injection rate for the CO2 2D example to be able to
-# compare both models.
-# NOTE: 1e2 m^3/day is approx 2L/s for each meter of well.
-INJECTION_RATE: float = 5e6  # unit: [m^3/d]
-INJECTION_TIME: float = 10.0  # unit: [d]
+NUM_ZCELLS: int = NUM_LAYERS * 5
 # Surface density of CO2 - calculated with OPM PVT.
 SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
-# Seabed temperature of 7°C + 35°C/km at 800-1000m depth ~ 40°C
-INIT_TEMPERATURE: float = 25  # unit: [°C]
 
 ##########
 # Ensemble
 ##########
 NUM_MEMBERS: int = 200
-NUM_ZCELLS: int = NUM_LAYERS * 5
-NUM_XCELLS: int = 50
 
 # Permeability ranges for each layer.
 variables: dict[str, tuple[float, float, int]] = {
@@ -88,23 +66,35 @@ runspecs_ensemble: dict[str, Any] = {
     "npruns": 5,  # number of parallel runs
     "variables": variables,
     "constants": {
-        "INIT_TEMPERATURE": INIT_TEMPERATURE,  # unit: [°C])
+        # Seabed temperature of 7°C + 35°C/km at 800-1100m depth ~ 40°C
+        "INIT_TEMPERATURE": 40,  # unit: [°C]
         "SURFACE_DENSITY": SURFACE_DENSITY,  # unit: [kg/m^3]
-        "INJECTION_RATE": INJECTION_RATE * SURFACE_DENSITY,  # unit: [kg/d]
-        "INJECTION_TIME": INJECTION_TIME,  # unit: [day]
+        # Surface rates for Utsira are 3e4 - 6e5 m^3/d on a perforation length of 38 m.
+        # We take larger values on a perforation length of 25 m to obtain a slightly
+        # larger pressure gradient.
+        # NOTE: The injection rate is 5x the injection rate for the CO2 2D example
+        # (which has a height of 5 m) to be able to compare both models.
+        # NOTE: 1e2 m^3/day is approx 2L/s for each meter of well.
+        "INJECTION_RATE": 5e6 * SURFACE_DENSITY,  # unit: [kg/d]
+        "INJECTION_TIME": 10.0,  # unit: [day]
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
-        "WELL_RADIUS": WELL_RADIUS,  # unit: [m]; Fixed during training.
-        "POROSITY": POROSITY,  # unit [-]
+        # The well is fully inside the innermost cells, which we consider as the "well"
+        # for easier computation of the data-driven well index. Therefore the well index
+        # for fine-scale simulation and integration differ.
+        "WELL_RADIUS": 0.2,  # unit: [m]
+        # Porosity ot Utsira formation is 0.34 - 0.36
+        "POROSITY": 0.35,  # unit: [-]
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
-        "NUM_XCELLS": NUM_XCELLS,
+        "NUM_XCELLS": 50,
         "LENGTH": 100,
-        "HEIGHT": RESERVOIR_HEIGHT,
+        # Utsira formation has a height of ~300 m and connection length of 38 m
+        # (horizontal?).  We consider only the area along the connection.
+        "HEIGHT": 25,  # unit: [m]
         "FLOW": FLOW,
         "OPM": OPM,
     },
 }
-
 
 ##########
 # Training
@@ -142,9 +132,9 @@ trainspecs: dict[str, Any] = {
 }
 
 
-##########
+#############
 # Integration
-##########
+#############
 constants_integration_1: dict[str, Any] = runspecs_ensemble["constants"] | {
     "PERM_0": 7e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
     "PERM_1": 4e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
@@ -155,9 +145,10 @@ constants_integration_1: dict[str, Any] = runspecs_ensemble["constants"] | {
     "OPM": OPM_ML,
     "FLOW": FLOW_ML,
     # Well radius is read from the radius of the innermost grid cell of the ensemble
-    # calculation times the ``pyopmnearwell_correction`` factor to translate from a
-    # triangle to a radial grid. Thus it differs from the ensemble well radius.
-    "WELL_RADIUS": 0.35,  # unit: [m]
+    # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+    # translate from a triangle to a radial grid. Thus it differs from the ensemble well
+    # radius.
+    "WELL_RADIUS": 0.25,  # unit: [m]
 }
 # This key will be used in variables.
 del constants_integration_1["NUM_ZCELLS"]
@@ -168,7 +159,7 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "nn_name": "trainspecs",
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
-        "GRID_SIZE": ["20,5,5,5,5", 5, 10, 20, 5, 10, 20],
+        "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "ML_MODEL_PATH": [
             "",
             str(dirname / "nn" / "WI.model"),
@@ -212,12 +203,12 @@ runspecs_integration_2D_1: dict[str, Any] = runspecs_integration_3D_and_Peaceman
 }
 
 constants_integration_2: dict[str, Any] = constants_integration_1 | {
-    "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_0": 8e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
     "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 9e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 70 * units.BAR_TO_PASCAL,  # unit: [Pa]
+    "PERM_2": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_3": 8e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_4": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,  # unit: [Pa]
 }
 
 runspecs_integration_3D_and_Peaceman_2: dict[str, Any] = (
@@ -253,4 +244,26 @@ runspecs_integration_3D_and_Peaceman_3: dict[str, Any] = (
 runspecs_integration_2D_3: dict[str, Any] = runspecs_integration_2D_1 | {
     "name": "integration_2D_3",
     "constants": constants_integration_3,
+}
+
+constants_integration_4: dict[str, Any] = constants_integration_1 | {
+    "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_3": 9e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "PERM_4": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+    "INIT_PRESSURE": 70 * units.BAR_TO_PASCAL,  # unit: [Pa]
+}
+
+runspecs_integration_3D_and_Peaceman_4: dict[str, Any] = (
+    runspecs_integration_3D_and_Peaceman_1
+    | {
+        "name": "integration_3D_and_Peaceman_4",
+        "constants": constants_integration_4,
+    }
+)
+
+runspecs_integration_2D_4: dict[str, Any] = runspecs_integration_2D_1 | {
+    "name": "integration_2D_4",
+    "constants": constants_integration_4,
 }

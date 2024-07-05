@@ -33,7 +33,13 @@ class CO2_2D_Upscaler(BaseUpscaler):
 
     """
 
-    def __init__(self, data: np.ndarray, runspecs: dict[str, Any], data_dim: int = 5):
+    def __init__(
+        self,
+        data: np.ndarray,
+        runspecs: dict[str, Any],
+        data_dim: int = 5,
+        angle: float = math.pi / 3,
+    ):
         """_summary_
 
         Note: It is always assumed that if reshaped with ... ordering, the features
@@ -43,9 +49,12 @@ class CO2_2D_Upscaler(BaseUpscaler):
         num_xcells, features)``
 
         Args:
-            data_dim (int): Dimension of a single data point. Should not be set unless
-            for very good reason. Default is 5.
-
+            data (np.ndarray): Data from the ensemble simulation. See above.
+            runspecs (dict[str, Any]): The runspecs dictionary from the ensemble.
+            data_dim (int): Dimension of a single data point. Should not be changed
+                unless for very good reason. Default is 5.
+            angle (float): Angle between both sides of the triangle grid.
+                Default is ``math.pi / 3``.
 
         """
         # Compute number of report steps.
@@ -57,11 +66,12 @@ class CO2_2D_Upscaler(BaseUpscaler):
         )
 
         # The well cell and the pore volume cell get disregarded in the final dataset.
-        # NOTE: Because cells smaller than well diameter get disregarded, the actual
-        # number of xcells is one less than specified in the pyopmnearwell deck.
-        # Accounting for this and disregarding the aforementioned cells, substract 3 to
+        # NOTE: Because two cells smaller than well diameter get disregarded when
+        # creating the grid, the actual number of xcells is one less than specified in
+        # the pyopmnearwell deck.
+        # Accounting for this and disregarding the aforementioned cells, substract 4 to
         # get the actual number of cells with valuable data.
-        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 3
+        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 4
         # Fine-scale simulations have a a single layer and are 2D.
         self.num_zcells: int = 1
         self.num_layers: int = 1
@@ -88,6 +98,8 @@ class CO2_2D_Upscaler(BaseUpscaler):
         )
 
         self.runspecs: dict[str, Any] = runspecs
+
+        self.angle: float = angle
 
     def create_ds(
         self,
@@ -156,13 +168,16 @@ class CO2_2D_Upscaler(BaseUpscaler):
             feature_lst[-1].shape == self.single_feature_shape
         ), "Geometrical part of WI feature has wrong shape."
 
-        # Get total injected gas. Multiply by 6 to account for cake model.
-        feature_lst.append(self.get_homogeneous_values(self.data, 4) * 6)
+        # Get total injected gas. Multiply by 6 to account for cake model of 60°.
+        feature_lst.append(
+            self.get_homogeneous_values(self.data, 4) * ((math.pi * 2) / self.angle)
+        )
         assert (
             feature_lst[-1].shape == self.single_feature_shape
         ), "Total injected volume feature has wrong shape."
 
-        # Get data-driven WI as target.
+        # Get data-driven WI as target. Scaling from cake grid to full 360° grid and
+        # from per day to per second takes place inside the function.
         WI_data: np.ndarray = self.get_data_WI(
             self.data,
             0,

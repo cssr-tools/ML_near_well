@@ -1,3 +1,4 @@
+import math
 import pathlib
 import sys
 
@@ -47,21 +48,20 @@ nn_dir.mkdir(parents=True, exist_ok=True)
 for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
     integration_dir.mkdir(parents=True, exist_ok=True)
 
-# Get OPM installations.
-# TODO: These need to be adjusted for reproducing results.
-OPM: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm")
-FLOW: pathlib.Path = OPM / "build" / "opm-simulators" / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm_ml")
-FLOW_ML: pathlib.Path = (
-    OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
-)
 
+# Angle between both sides of the triangle grid.
+ANGLE: float = math.pi / 3
 
 # Run ensemble and extract data.
 if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
+        # NOTE: To calculate the well index, we take the flow rate at the well under
+        # surface conditions. Cf. section 2.2.1 of A. F. Rasmussen et al., “The Open
+        # Porous Media Flow reservoir simulator,” Computers & Mathematics with
+        # Applications, vol. 81, pp. 159–185, Jan. 2021, doi:
+        # 10.1016/j.camwa.2020.05.014.
         ecl_keywords=["PRESSURE", "FLOGASI+"],
         init_keywords=["PERMX", "DZ"],
         summary_keywords=["FGIT"],
@@ -87,6 +87,7 @@ if True:
         extracted_data,
         runspecs_ensemble,
         data_dim=5,  # Dimension of a single datapoint.
+        angle=ANGLE,
     )
     features, targets = upscaler.create_ds(
         ensemble_dir, step_size_x=5, step_size_t=2, log_WI=True, log_geom_WI=True

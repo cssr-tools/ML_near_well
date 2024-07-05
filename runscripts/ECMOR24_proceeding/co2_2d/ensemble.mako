@@ -5,7 +5,7 @@ ${FLOW} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --ecl-enable-
 co2store no_disgas_no_diffusion     #Model (co2store/h2store/co2eor/saltprec) and name of the template file (see src/pyopmnearwell/templates/)
 cake 60                             #Grid type (radial/cake/cartesian2d/cartesian/cpg3d/coord2d/coord3d/tensor2d/tensor3d) and size (theta[in degrees]/theta[in degrees]/width[m]/anynumber(the y size is set equal to the x one))
 ${LENGTH} ${int(HEIGHT)}            #Reservoir dimensions [m] (Length and height)
-${NUM_XCELLS} 1 4                   #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
+${NUM_XCELLS} 1 5                   #Number of x- and z-cells [-] and exponential factor for the telescopic x-gridding (0 to use an equidistance partition)
 ${2*WELL_RADIUS} 1 1                #Well diameter [m], well transmiscibility (0 to use the computed one internally in Flow), and remove the smaller cells than the well diameter
 ${INIT_PRESSURE} ${INIT_TEMPERATURE} 0     #Pressure [Pa] on the top, uniform temperature [°], and initial phase in the reservoir (0 wetting, 1 non-wetting)
 1e10 1                              #Pore volume multiplier on the boundary [-] (0 to use well producers instead) and deactivate cross flow within the wellbore (see XFLOW in OPM Manual)

@@ -39,7 +39,11 @@ class CO2_3D_upscaler(BaseUpscaler):
     """
 
     def __init__(
-        self, data: np.ndarray, runspecs: dict[str, Any], data_dim: int = 6
+        self,
+        data: np.ndarray,
+        runspecs: dict[str, Any],
+        data_dim: int = 6,
+        angle: float = math.pi / 3,
     ) -> None:
         """_summary_
 
@@ -50,8 +54,12 @@ class CO2_3D_upscaler(BaseUpscaler):
         num_xcells, features)``
 
         Args:
-            data_dim (int): Dimension of a single data point. Should not be set unless
-            for very good reason. Default is 6.
+            data (np.ndarray): Data from the ensemble simulation. See above.
+            runspecs (dict[str, Any]): The runspecs dictionary from the ensemble.
+            data_dim (int): Dimension of a single data point. Should not be changed
+                unless for very good reason. Default is 6.
+            angle (float): Angle between both sides of the triangle grid.
+                Default is ``math.pi / 3``.
 
         """
         # TODO: This might not work all the time, sometimes it might need to be rounded
@@ -66,11 +74,12 @@ class CO2_3D_upscaler(BaseUpscaler):
             runspecs["constants"]["NUM_ZCELLS"] / runspecs["constants"]["NUM_LAYERS"]
         )
         # The well cell and the pore volume cell get disregarded.
-        # NOTE: Because cells smaller than well diameter get disregarded, the actual
-        # number of xcells is one less than specified in the pyopmnearwell deck.
-        # Accounting for this and disregarding the aforementioned cells, substract 3 to
+        # NOTE: Because two cells smaller than well diameter get disregarded when
+        # creating the grid, the actual number of xcells is one less than specified in
+        # the pyopmnearwell deck.
+        # Accounting for this and disregarding the aforementioned cells, substract 4 to
         # get the actual number of cells with valuable data.
-        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 3
+        self.num_xcells: int = runspecs["constants"]["NUM_XCELLS"] - 4
 
         self.data: np.ndarray = data.reshape(
             -1,
@@ -98,6 +107,8 @@ class CO2_3D_upscaler(BaseUpscaler):
         #   - The last axis (i.e., all horizontal cells in one layer) is eliminated by
         #     integration or picking a single value.
         self.runspecs: dict[str, Any] = runspecs
+
+        self.angle: float = angle
 
     def create_ds(
         self,
