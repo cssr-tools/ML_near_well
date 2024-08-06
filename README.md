@@ -15,14 +15,17 @@ reservoir simulator OPM Flow. In addition, our code uses the
 ensemble simulations and model training and the [OPM Flow - neural network framework]()
 for integration of neural networks into OPM Flow. 
 
-**Note:** The latter is not publicly available yet (as of 06.06.2024), without it the
+**Note:** The latter is not publicly available yet (as of 06.06.2024); without it the
 code in this repository will only run partly. As soon as everything is available, this note will be removed.
+**06th August 2024:** ``pyopmnearwell`` was just updated to require ``OPM Flow 2024.04`` and ``python 3.10``.
+This might cause some smaller issues with, e.g., renamed keywords, as this repo was tested with
+``OPM Flow 2023.04`` and ``python 3.8``. We will test and update everything as soon as possible.
 
 ![Figure]
 
 # Installation
-**Note:** Everything was tested on ``WSL2`` with an ``ubuntu 20.02`` installation and
-``python 3.8.10``. 
+**Note:** Everything was tested on ``WSL2`` with an ``ubuntu 20.02`` installation,
+``python 3.8.10``, and ``OPM Flow 2023.04``.
 1. Create a virtual environment (e.g., with ``conda``) and install the dependencies with
    ``pip install -r requirements.txt``.
 2. Clone https://github.com/cssr-tools/pyopmnearwell/tree/development, go to the local
