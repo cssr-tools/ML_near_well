@@ -17,11 +17,10 @@ for integration of neural networks into OPM Flow.
 
 **Note:** The latter is not publicly available yet (as of 06.06.2024); without it the
 code in this repository will only run partly. As soon as everything is available, this note will be removed.
+
 **06th August 2024:** ``pyopmnearwell`` was just updated to require ``OPM Flow 2024.04`` and ``python 3.10``.
 This might cause some smaller issues with, e.g., renamed keywords, as this repo was tested with
 ``OPM Flow 2023.04`` and ``python 3.8``. We will test and update everything as soon as possible.
-
-![Figure]
 
 # Installation
 **Note:** Everything was tested on ``WSL2`` with an ``ubuntu 20.02`` installation,
@@ -94,7 +93,4 @@ and ``co2_3d``.
 If you use either all or part of of the code in this repository, we kindly ask you to
 cite the following reference:
 
-TODO: Fix reference.
-von Schultzendorff, P., Sandve, T.H., Kane, B., Landa-Marban, D., Both,
-J.W., Nordbotten, J. "A machine-learned near-well model in OPM Flow" (2024), To be
-published
+P. von Schultzendorff, T. H. Sandve, B. Kane, D. Landa-Marbán, J. W. Both, and J. M. Nordbotten, “A Machine-Learned Near-Well Model in OPM Flow”, presented at ECMOR 2024, European Association of Geoscientists & Engineers, Sep. 2024, pp. 1–23. doi: 10.3997/2214-4609.202437033.
