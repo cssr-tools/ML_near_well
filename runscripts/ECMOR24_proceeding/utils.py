@@ -6,6 +6,8 @@ integration.
 
 """
 
+from __future__ import annotations
+
 import csv
 import inspect
 import math
@@ -533,7 +535,9 @@ def plot_member(
             raise ValueError(f"{trainspecs['architecture']} is not supported.")  # type: ignore
 
         output: np.ndarray = nn.scale_and_evaluate(
-            model, input, nn_dirname / "scalings.csv"  # type: ignore
+            model,
+            input,
+            nn_dirname / "scalings.csv",  # type: ignore
         )
 
         # Reshape back into original form

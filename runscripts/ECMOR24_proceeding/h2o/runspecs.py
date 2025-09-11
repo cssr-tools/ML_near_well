@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 from typing import Any
 
@@ -85,36 +87,48 @@ runspecs_integration_1: dict[str, Any] = {
             "27x27m_Peaceman",
         ],
     },
-    "constants": runspecs_ensemble["constants"]
-    | {
-        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "INT_HEIGHT": 7.5,  # unit: [m]
-        "PERM": 2e-13 * units.M2_TO_MILIDARCY,
-        "RESERVOIR_SIZE": 1100,  # unit: [m]
-        # Well radius is read from the radius of the innermost grid cell of the ensemble
-        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
-        # translate from a triangle to a radial grid. Thus it differs from the ensemble
-        # well radius.
-        "WELL_RADIUS": 0.25,  # unit: [m]
-        "OPM": OPM_ML,
-        "FLOW": FLOW_ML,
+    "constants": {
+        **runspecs_ensemble["constants"],
+        **{
+            "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
+            "INT_HEIGHT": 7.5,  # unit: [m]
+            "PERM": 2e-13 * units.M2_TO_MILIDARCY,
+            "RESERVOIR_SIZE": 1100,  # unit: [m]
+            # Well radius is read from the radius of the innermost grid cell of the ensemble
+            # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+            # translate from a triangle to a radial grid. Thus it differs from the ensemble
+            # well radius.
+            "WELL_RADIUS": 0.25,  # unit: [m]
+            "OPM": OPM_ML,
+            "FLOW": FLOW_ML,
+        },
     },
 }
 
-runspecs_integration_2 = runspecs_integration_1 | {
-    "constants": runspecs_integration_1["constants"]
-    | {
-        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
-        "INT_HEIGHT": 15,
-        "PERM": 5e-13 * units.M2_TO_MILIDARCY,
-    }
+runspecs_integration_2 = {
+    **runspecs_integration_1,
+    **{
+        "constants": {
+            **runspecs_integration_1["constants"],
+            **{
+                "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
+                "INT_HEIGHT": 15,
+                "PERM": 5e-13 * units.M2_TO_MILIDARCY,
+            },
+        }
+    },
 }
 
-runspecs_integration_3 = runspecs_integration_1 | {
-    "constants": runspecs_integration_1["constants"]
-    | {
-        "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,
-        "INT_HEIGHT": 20,
-        "PERM": 5e-14 * units.M2_TO_MILIDARCY,
-    }
+runspecs_integration_3 = {
+    **runspecs_integration_1,
+    **{
+        "constants": {
+            **runspecs_integration_1["constants"],
+            **{
+                "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,
+                "INT_HEIGHT": 20,
+                "PERM": 5e-14 * units.M2_TO_MILIDARCY,
+            },
+        }
+    },
 }

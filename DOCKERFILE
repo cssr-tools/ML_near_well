@@ -1,0 +1,25 @@
+FROM openporousmedia/opmreleases:2024.06
+
+# Install Python 3.8 and pip.
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt update && \
+    apt install -y git python3.8 python3.8-venv python3.8-dev && \
+    python3.8 -m ensurepip --upgrade && \
+    python3.8 -m pip install --upgrade pip setuptools wheel
+
+ENV WORKSPACE /workspaces
+RUN mkdir -p $WORKSPACE
+WORKDIR $WORKSPACE
+
+# Clone and install ML_near_well.
+RUN git clone https://github.com/cssr-tools/ML_near_well/ && \
+    cd ML_near_well && \
+    python3.8 -m pip install -r requirements.txt
+
+# Clone and install pyopmnearwell.
+RUN cd .. && \
+    git clone https://github.com/cssr-tools/pyopmnearwell/2024-08_ML_near_well_article && \
+    cd pyopmnearwell && \
+    python3.8 -m pip install -r requirements.txt && \
+    # python3.8 -m pip install -r dev-requirements.txt && \
+    python3.8 -m pip install -e .

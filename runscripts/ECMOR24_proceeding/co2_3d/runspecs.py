@@ -13,6 +13,8 @@ CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 
 """
 
+from __future__ import annotations
+
 import pathlib
 from typing import Any
 
@@ -23,7 +25,7 @@ dirname: pathlib.Path = pathlib.Path(__file__).parent
 OPM_ML: str = "/home/peter/Documents/2023_CEMRACS/opm_ml"
 FLOW_ML: str = f"{OPM_ML}/build/opm-simulators/bin/flow_gaswater_dissolution_diffuse"
 OPM: str = "/home/peter/Documents/2023_CEMRACS/opm"
-FLOW: str = f"{OPM}/build/opm-simulators/bin/flow"
+FLOW: str = "/usr/bin/flow"
 
 
 # Fixed values for all runs
@@ -135,20 +137,23 @@ trainspecs: dict[str, Any] = {
 #############
 # Integration
 #############
-constants_integration_1: dict[str, Any] = runspecs_ensemble["constants"] | {
-    "PERM_0": 7e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_1": 4e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 3e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-    "OPM": OPM_ML,
-    "FLOW": FLOW_ML,
-    # Well radius is read from the radius of the innermost grid cell of the ensemble
-    # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
-    # translate from a triangle to a radial grid. Thus it differs from the ensemble well
-    # radius.
-    "WELL_RADIUS": 0.25,  # unit: [m]
+constants_integration_1: dict[str, Any] = {
+    **runspecs_ensemble["constants"],
+    **{
+        "PERM_0": 7e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_1": 4e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_2": 3e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_3": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_4": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
+        "OPM": OPM_ML,
+        "FLOW": FLOW_ML,
+        # Well radius is read from the radius of the innermost grid cell of the ensemble
+        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+        # translate from a triangle to a radial grid. Thus it differs from the ensemble well
+        # radius.
+        "WELL_RADIUS": 0.25,  # unit: [m]
+    },
 }
 # This key will be used in variables.
 del constants_integration_1["NUM_ZCELLS"]
@@ -183,87 +188,108 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "constants": constants_integration_1,
 }
 
-runspecs_integration_2D_1: dict[str, Any] = runspecs_integration_3D_and_Peaceman_1 | {
-    "name": "integration_2D_1",
-    "variables": {
-        "RESERVOIR_SIZE": [1100] * 3,  # unit: [m]
-        "GRID_SIZE": [6, 10, 20],  # 55],  # , 55],
-        "ML_MODEL_PATH": [
-            str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-            str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-            str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-        ],
-        "RUN_NAME": [
-            "90x90m_NN_2D",
-            "52x52m_NN_2D",
-            "27x27m_NN_2D",
-        ],
-        "NUM_ZCELLS": [NUM_LAYERS] * 3,
+runspecs_integration_2D_1: dict[str, Any] = {
+    **runspecs_integration_3D_and_Peaceman_1,
+    **{
+        "name": "integration_2D_1",
+        "variables": {
+            "RESERVOIR_SIZE": [1100] * 3,  # unit: [m]
+            "GRID_SIZE": [6, 10, 20],  # 55],  # , 55],
+            "ML_MODEL_PATH": [
+                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
+                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
+                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
+            ],
+            "RUN_NAME": [
+                "90x90m_NN_2D",
+                "52x52m_NN_2D",
+                "27x27m_NN_2D",
+            ],
+            "NUM_ZCELLS": [NUM_LAYERS] * 3,
+        },
     },
 }
 
-constants_integration_2: dict[str, Any] = constants_integration_1 | {
-    "PERM_0": 8e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 8e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,  # unit: [Pa]
+constants_integration_2: dict[str, Any] = {
+    **constants_integration_1,
+    **{
+        "PERM_0": 8e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_2": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_3": 8e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_4": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,  # unit: [Pa]
+    },
 }
 
-runspecs_integration_3D_and_Peaceman_2: dict[str, Any] = (
-    runspecs_integration_3D_and_Peaceman_1
-    | {
+runspecs_integration_3D_and_Peaceman_2: dict[str, Any] = {
+    **runspecs_integration_3D_and_Peaceman_1,
+    **{
         "name": "integration_3D_and_Peaceman_2",
         "constants": constants_integration_2,
-    }
-)
-
-runspecs_integration_2D_2: dict[str, Any] = runspecs_integration_2D_1 | {
-    "name": "integration_2D_2",
-    "constants": constants_integration_2,
+    },
 }
 
-constants_integration_3: dict[str, Any] = constants_integration_1 | {
-    "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_1": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  # unit: [Pa]
+runspecs_integration_2D_2: dict[str, Any] = {
+    **runspecs_integration_2D_1,
+    **{
+        "name": "integration_2D_2",
+        "constants": constants_integration_2,
+    },
 }
 
-runspecs_integration_3D_and_Peaceman_3: dict[str, Any] = (
-    runspecs_integration_3D_and_Peaceman_1
-    | {
+constants_integration_3: dict[str, Any] = {
+    **constants_integration_1,
+    **{
+        "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_1": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_3": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_4": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  # unit: [Pa]
+    },
+}
+
+runspecs_integration_3D_and_Peaceman_3: dict[str, Any] = {
+    **runspecs_integration_3D_and_Peaceman_1,
+    **{
         "name": "integration_3D_and_Peaceman_3",
         "constants": constants_integration_3,
-    }
-)
-
-runspecs_integration_2D_3: dict[str, Any] = runspecs_integration_2D_1 | {
-    "name": "integration_2D_3",
-    "constants": constants_integration_3,
+    },
 }
 
-constants_integration_4: dict[str, Any] = constants_integration_1 | {
-    "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_3": 9e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "PERM_4": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-    "INIT_PRESSURE": 70 * units.BAR_TO_PASCAL,  # unit: [Pa]
+runspecs_integration_2D_3: dict[str, Any] = {
+    **runspecs_integration_2D_1,
+    **{
+        "name": "integration_2D_3",
+        "constants": constants_integration_3,
+    },
 }
 
-runspecs_integration_3D_and_Peaceman_4: dict[str, Any] = (
-    runspecs_integration_3D_and_Peaceman_1
-    | {
+constants_integration_4: dict[str, Any] = {
+    **constants_integration_1,
+    **{
+        "PERM_0": 9e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_3": 9e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_4": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "INIT_PRESSURE": 70 * units.BAR_TO_PASCAL,  # unit: [Pa]
+    },
+}
+
+runspecs_integration_3D_and_Peaceman_4: dict[str, Any] = {
+    **runspecs_integration_3D_and_Peaceman_1,
+    **{
         "name": "integration_3D_and_Peaceman_4",
         "constants": constants_integration_4,
-    }
-)
+    },
+}
 
-runspecs_integration_2D_4: dict[str, Any] = runspecs_integration_2D_1 | {
-    "name": "integration_2D_4",
-    "constants": constants_integration_4,
+runspecs_integration_2D_4: dict[str, Any] = {
+    **runspecs_integration_2D_1,
+    **{
+        "name": "integration_2D_4",
+        "constants": constants_integration_4,
+    },
 }

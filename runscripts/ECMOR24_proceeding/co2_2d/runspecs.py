@@ -8,6 +8,8 @@ CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 
 """
 
+from __future__ import annotations
+
 import pathlib
 from typing import Any
 
@@ -107,32 +109,44 @@ runspecs_integration_1: dict[str, Any] = {
             "27x27m_Peaceman",
         ],
     },
-    "constants": runspecs_ensemble["constants"]
-    | {
-        "PERM": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-        "OPM": OPM_ML,
-        "FLOW": FLOW_ML,
-        # Well radius is read from the radius of the innermost grid cell of the ensemble
-        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
-        # translate from a triangle to a radial grid. Thus it differs from the ensemble
-        # well radius.
-        "WELL_RADIUS": 0.25,  # unit: [m]
+    "constants": {
+        **runspecs_ensemble["constants"],
+        **{
+            "PERM": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
+            "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
+            "OPM": OPM_ML,
+            "FLOW": FLOW_ML,
+            # Well radius is read from the radius of the innermost grid cell of the ensemble
+            # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
+            # translate from a triangle to a radial grid. Thus it differs from the ensemble
+            # well radius.
+            "WELL_RADIUS": 0.25,  # unit: [m]
+        },
     },
 }
 
-runspecs_integration_2 = runspecs_integration_1 | {
-    "constants": runspecs_integration_1["constants"]
-    | {
-        "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,
-        "PERM": 5e-12 * units.M2_TO_MILIDARCY,
-    }
+runspecs_integration_2 = {
+    **runspecs_integration_1,
+    **{
+        "constants": {
+            **runspecs_integration_1["constants"],
+            **{
+                "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,
+                "PERM": 5e-12 * units.M2_TO_MILIDARCY,
+            },
+        },
+    },
 }
 
-runspecs_integration_3 = runspecs_integration_1 | {
-    "constants": runspecs_integration_1["constants"]
-    | {
-        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
-        "PERM": 9e-13 * units.M2_TO_MILIDARCY,
-    }
+runspecs_integration_3 = {
+    **runspecs_integration_1,
+    **{
+        "constants": {
+            **runspecs_integration_1["constants"],
+            **{
+                "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
+                "PERM": 9e-13 * units.M2_TO_MILIDARCY,
+            },
+        },
+    },
 }
