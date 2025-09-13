@@ -22,10 +22,9 @@ from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-OPM_ML: str = "/home/peter/Documents/2023_CEMRACS/opm_ml"
-FLOW_ML: str = f"{OPM_ML}/build/opm-simulators/bin/flow_gaswater_dissolution_diffuse"
-OPM: str = "/home/peter/Documents/2023_CEMRACS/opm"
-FLOW: str = "/usr/bin/flow"
+FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
+OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
+FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
 
 
 # Fixed values for all runs
@@ -94,7 +93,6 @@ runspecs_ensemble: dict[str, Any] = {
         # (horizontal?).  We consider only the area along the connection.
         "HEIGHT": 25,  # unit: [m]
         "FLOW": FLOW,
-        "OPM": OPM,
     },
 }
 

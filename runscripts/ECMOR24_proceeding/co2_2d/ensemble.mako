@@ -1,5 +1,5 @@
 """Set the full path to the flow executable and flags"""
-${FLOW} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --ecl-enable-drift-compensation=0 --newton-max-iterations=50 --newton-min-iterations=5 --tolerance-mb=1e-7 --tolerance-wells=1e-5 --relaxed-well-flow-tol=1e-5 --use-multisegment-well=false --enable-tuning=true --enable-opm-rst-file=true --linear-solver=cprw --enable-well-operability-check=false --solver-min-time-step=0.001 --min-time-step-before-shutting-problematic-wells-in-days=1e-1
+${FLOW} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --newton-max-iterations=50 --newton-min-iterations=5 --tolerance-mb=1e-7 --tolerance-wells=1e-5 --relaxed-well-flow-tol=1e-5 --use-multisegment-well=false --enable-tuning=true --enable-opm-rst-file=true --linear-solver=cprw --enable-well-operability-check=false --solver-min-time-step=0.001 --min-time-step-before-shutting-problematic-wells-in-days=1e-1
 
 """Set the model parameters"""
 co2store no_disgas_no_diffusion     #Model (co2store/h2store/co2eor/saltprec) and name of the template file (see src/pyopmnearwell/templates/)

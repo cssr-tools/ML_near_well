@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 from contextlib import nullcontext as does_not_raise
 from typing import Any, Dict, Literal, Optional
@@ -9,7 +11,6 @@ from matplotlib.figure import Figure
 from tensorflow import keras
 
 # Import the function to be tested
-from .utils import plot_member, read_and_plot_bhp
 
 # Define test data
 features = np.random.rand(10, 5, 20, 3)
@@ -69,6 +70,9 @@ NUM_INPUTS: int = 3
 #     kwargs: Dict[str, Any],
 #     expected_exception,
 # ):
+# Import ``utils.py`` now s.t. ``mock`` below replaces ``EclSum`` BEFORE it is imported
+# in ``utils.py``.
+#     from .utils import plot_member
 #     with expected_exception:
 #         plot_member(
 #             features,
@@ -108,6 +112,9 @@ class MockEclSum:
         elif key == "TIME":
             return np.linspace(0, 1, 10)
 
+    def _load_case(self):
+        pass
+
 
 @mock.patch("ecl.summary.ecl_sum.EclSum", MockEclSum)
 @pytest.mark.parametrize(
@@ -132,6 +139,10 @@ def test_read_and_plot_bhp(
     colors: list[str],
     linestyles: list[str],
 ):
+    # Import ``utils.py`` now s.t. ``mock`` replaces ``EclSum`` BEFORE it is imported in
+    # ``utils.py``.
+    from .utils import read_and_plot_bhp
+
     savepath: pathlib.Path = tmp_path / "read_and_plot.svg"
     read_and_plot_bhp(sum_files, labels, colors, linestyles, savepath)
     assert (savepath).exists()

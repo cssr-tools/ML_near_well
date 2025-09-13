@@ -17,12 +17,10 @@ from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-OPM: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm")
-FLOW: pathlib.Path = OPM / "build" / "opm-simulators" / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/home/peter/Documents/2023_CEMRACS/opm_ml")
-FLOW_ML: pathlib.Path = (
-    OPM_ML / "build" / "opm-simulators" / "bin" / "flow_gaswater_dissolution_diffuse"
-)
+FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
+OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
+FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+
 
 # Surface density of CO2 - calculated with OPM PVT.
 SURFACE_DENSITY: float = 1.86843  # unit [kg/m^3]

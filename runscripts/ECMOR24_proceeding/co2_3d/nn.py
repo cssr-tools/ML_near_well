@@ -178,7 +178,7 @@ def restructure_data(
     new_features: np.ndarray = np.stack(new_features_lst, axis=-1)
 
     # Select the correct features from the train specs
-    new_features: np.ndarray = new_features[
+    new_features = new_features[
         ..., [FEATURE_TO_INDEX[feature] for feature in trainspecs["features"]]
     ]
 

@@ -176,9 +176,9 @@ class CO2_3D_upscaler(BaseUpscaler):
         # Get all data.
         # Get pressures. Average vertically over all cells inside a layer.
         feature_lst.append(self.get_vertically_averaged_values(self.data, 0))
-        assert feature_lst[-1].shape == self.single_feature_shape, (
-            "Pressures feature has wrong shape."
-        )
+        assert (
+            feature_lst[-1].shape == self.single_feature_shape
+        ), "Pressures feature has wrong shape."
         # Get saturations. Sum over all cells inside a layer and integrate over all
         # horizontical cells.
         feature_lst.append(
@@ -193,22 +193,22 @@ class CO2_3D_upscaler(BaseUpscaler):
                 0,
             )
         )
-        assert feature_lst[-1].shape == self.single_feature_shape, (
-            "Saturations feature has wrong shape."
-        )
+        assert (
+            feature_lst[-1].shape == self.single_feature_shape
+        ), "Saturations feature has wrong shape."
         # Get permeabilities.
         feature_lst.append(self.get_homogeneous_values(self.data, 3))
-        assert feature_lst[-1].shape == self.single_feature_shape, (
-            "Permeabilities feature has wrong shape."
-        )
+        assert (
+            feature_lst[-1].shape == self.single_feature_shape
+        ), "Permeabilities feature has wrong shape."
         # Get equivalent well radii. Won't have single_feature_shape, but will be
         # broadcasted later.
         feature_lst.append(cell_center_radii)
         # Get total injected volume. Multiply by 6 to account for cake model.
         feature_lst.append(self.get_homogeneous_values(self.data, 5) * 6)
-        assert feature_lst[-1].shape == self.single_feature_shape, (
-            "Total injected volume feature has wrong shape."
-        )
+        assert (
+            feature_lst[-1].shape == self.single_feature_shape
+        ), "Total injected volume feature has wrong shape."
         # Get geometrical part of WI. Upscale cell heights to coarse cell grids. Each
         # layer is one layer of coarse cells.
         cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4) * (
@@ -226,9 +226,9 @@ class CO2_3D_upscaler(BaseUpscaler):
                 # is the inner radius of the first cell.
             )
         )
-        assert feature_lst[-1].shape == self.single_feature_shape, (
-            "Geometrical part of WI feature has wrong shape."
-        )
+        assert (
+            feature_lst[-1].shape == self.single_feature_shape
+        ), "Geometrical part of WI feature has wrong shape."
 
         # Get data-driven WI as target.
         WI_data: np.ndarray = self.get_data_WI(

@@ -18,7 +18,6 @@ import numpy as np
 import tensorflow as tf
 from ecl.summary.ecl_sum import EclSum
 from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
 from pyopmnearwell.ml import ensemble, nn
 from pyopmnearwell.utils import plotting, units
 from tensorflow import keras
@@ -421,7 +420,7 @@ def plot_member(
         nn_dirname (Optional[str | pathlib.Path], optional): The directory of the neural
             network model. Defaults to None.
         y_param (Literal["p_w", "WI", "WI_log"], optional): The parameter to plot on the
-        y-axis. Defaults to "WI".
+            y-axis. Defaults to "WI".
         x_param (Literal["time", "radius"], optional): The parameter to plot on the
         x-axis. Defaults to "radius".
         comparison_param (Literal["time", "layer"], optional): The parameter to compare
@@ -525,26 +524,26 @@ def plot_member(
 
         # Squeeze all axes except the inputs and possibly time steps.
         if trainspecs["architecture"] == "fcnn":  # type: ignore
-            input: np.ndarray = feature_member.reshape(-1, saved_shape[-1])
+            model_output: np.ndarray = feature_member.reshape(-1, saved_shape[-1])
         elif trainspecs["architecture"] == "rnn":  # type: ignore
             # This is more intricate. The axes need to be switched forth and back s.t.
             # the time axis is second to last.
-            input = feature_member.swapaxes(0, -2)
-            input = input.reshape(-1, saved_shape[0], saved_shape[-1])
+            model_output = feature_member.swapaxes(0, -2)
+            model_output = model_output.reshape(-1, saved_shape[0], saved_shape[-1])
         else:
             raise ValueError(f"{trainspecs['architecture']} is not supported.")  # type: ignore
 
-        output: np.ndarray = nn.scale_and_evaluate(
+        model_output: np.ndarray = nn.scale_and_evaluate(
             model,
-            input,
+            model_output,
             nn_dirname / "scalings.csv",  # type: ignore
         )
 
         # Reshape back into original form
         if trainspecs["architecture"] == "rnn":  # type: ignore
             # Switch back time axis and the other axis (which are squeezed to one axis).
-            output = output.swapaxes(0, -2)
-        WI_nn_member: np.ndarray = np.reshape(output, saved_shape[:-1] + [1])
+            model_output = model_output.swapaxes(0, -2)
+        WI_nn_member: np.ndarray = np.reshape(model_output, saved_shape[:-1] + [1])
     else:
         # Create dummy s.t. it does not need to be checked whether plot_nn is False all
         # the time. During plotting it is checked again, so the dummy is not plotted.
@@ -628,8 +627,7 @@ def plot_member(
         feature_member, (fixed_axis, comp_axis, x_axis), (0, 1, 2)
     )[fixed_param_index]
 
-    fig: Figure = plt.figure()
-    ax = plt.subplot()
+    fig, ax = plt.subplots()
 
     for num_comp, color in zip(
         range(y_values_data_member.shape[0]),
@@ -652,7 +650,8 @@ def plot_member(
         ax.scatter(
             x_values,
             y_values_data_member[num_comp],
-            label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ data, $\mathbf{{k}}: {permeability_str}\, {Y_AXIS_UNITS['perm']}$",
+            label=rf"{comparison_param} {num_comp}: ${LABEL[y_param]}$ data,"
+            + rf" $\mathbf{{k}}: {permeability_str}\, {Y_AXIS_UNITS['perm']}$",
             color=color,
         )
         if plot_nn:
@@ -676,7 +675,7 @@ def plot_member(
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
-    ax.set_xlabel(rf"${x_param}\, {X_AXIS_UNITS[x_param]}$")
+    # ax.set_xlabel(rf"${x_param}\, {X_AXIS_UNITS[x_param]}$")
     ax.set_ylabel(rf"${LABEL[y_param]}\, {Y_AXIS_UNITS[y_param]}$")
     ax.set_title(
         rf"${LABEL[y_param]}$ plotted vs {x_param} for various {comparison_param}s"

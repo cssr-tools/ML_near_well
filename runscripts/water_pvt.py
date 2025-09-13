@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 import pathlib
 
 import numpy as np
 from pyopmnearwell.utils import formulas, units
 
-OPM: pathlib.Path = (
-    pathlib.Path("/home") / "peter" / "Documents" / "2023_CEMRACS" / "opm"
-)
+OPM: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM")
+
 TEMPERATURE: float = 30
 pressures: np.ndarray = np.linspace(20, 500, 10)
 

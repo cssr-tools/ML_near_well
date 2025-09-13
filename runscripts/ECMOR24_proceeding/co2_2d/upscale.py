@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import math
 import pathlib
 from typing import Any
 
 import numpy as np
 from pyopmnearwell.ml.upscale import BaseUpscaler
-from pyopmnearwell.utils import formulas
 
 
 class CO2_2D_Upscaler(BaseUpscaler):

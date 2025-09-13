@@ -6,36 +6,46 @@ fine-scale ensemble simulations of the near-well region under differing flow reg
 This novel approach allows for flexible and accurate modeling of transient and
 multiphase effects.
 
-The accompanying paper is [*A machine-learned near-well model in OPM Flow*](), to be
-published later in 2024.
+The accompanying paper is [*A machine-learned near-well model in OPM Flow, von Schultzendorff et al. (2024)*](https://www.earthdoc.org/content/papers/10.3997/2214-4609.202437033). 
 
 The ensemble simulations as well as tests of the final model are run in the open-source
 reservoir simulator OPM Flow. In addition, our code uses the
-[pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package for near-well
-ensemble simulations and model training and the [OPM Flow - neural network framework]()
-for integration of neural networks into OPM Flow. 
+[pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package to run near-well
+ensemble simulations, extract data sets, and train models.
 
-**Note:** The latter is not publicly available yet (as of 06.06.2024); without it the
-code in this repository will only run partly. As soon as everything is available, this note will be removed.
-
-**06th August 2024:** ``pyopmnearwell`` was just updated to require ``OPM Flow 2024.04`` and ``python 3.10``.
-This might cause some smaller issues with, e.g., renamed keywords, as this repo was tested with
-``OPM Flow 2023.04`` and ``python 3.8``. We will test and update everything as soon as possible.
+All scripts were run with ``OPM Flow 2024.10``,
+``python 3.8.20``,  and the python packages specified in ``requirements_full.txt`` on
+the ``:openporousmedia/opmreleases:2024.10:`` Docker image.
 
 # Installation
-**Note:** Everything was tested on ``WSL2`` with an ``ubuntu 20.02`` installation,
-``python 3.8.10``, and ``OPM Flow 2023.04``.
-1. Create a virtual environment (e.g., with ``conda``) and install the dependencies with
-   ``pip install -r requirements.txt``.
-2. Clone https://github.com/cssr-tools/pyopmnearwell/tree/development, go to the local
-   repo, and install with ``pip install .``-.
-3. Install OPM or build from source https://opm-project.org/?page_id=36 (needed to run
-   the ensemble scripts).
-4. Build OPM with ML integration from source
-   https://github.com/fractalmanifold/ml_integration2opm/tree/main (needed to run the
-   integration scripts).
-5. Clone this repo ``git clone ...``.
-6. Update the paths to OPM and OPM with ML integration in the runscripts.
+**Note:** All scripts were run with on the ``:openporousmedia/opmreleases:2024.10:``
+Docker image with ``OPM Flow 2024.10``, ``python 3.8.20``,  and the python packages
+specified in ``requirements_full.txt``.
+
+The ML functionality in OPM Flow does not work right now, we need ``OPM Flow 2025.04``
+for that and probably some updates to ``pyopmnearwell``
+
+To install, either build from the Dockerfile 
+1. ``docker build DOCKERFILE``
+2. ``docker run ML_near_well``
+
+or, if you prefer to install on your own machine,
+
+1. Clone this repo
+   ``git clone --branch reproducable https://github.com/cssr-tools/ML_near_well/``
+2. Create a virtual environment (e.g., with ``conda``), navigate to the local repo, and
+   install the dependencies with
+   ``pip install -r requirements.txt``
+   or (if you run into errors at any point)
+   ``pip install -r requirements_full.txt``
+3. Clone ``pyopmnearwell``
+   ``git clone --branch 024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell/``,
+   navigate to the local repo, and install ``pyopmnearwell`` with
+   ``pip install .``
+4. Install OPM Flow or build from source https://opm-project.org/?page_id=36 (needed to
+   run the ensemble scripts).
+5. Install an OPM Flow 
+6. Update the paths to OPM Flow in the runscripts.
 ```
 h2o/runspecs.py
 co2_2d/runspecs.py
@@ -76,7 +86,8 @@ that you use the right values to get correct results.
   injection rate, still need to be adjusted to a full 360° well.
 
 # Reproduce results
-To reproduce the paper results and figures, run these commands:
+To reproduce the paper results and figures, run these commands (requires that
+``python3.8`` is an available command):
 ```
 cd examples
 bash run.bash
@@ -84,7 +95,7 @@ bash run.bash
 Alternatively, you can run each of the examples individually, e.g.,:
 ```
 cd examples/h2o_extended
-python main.py
+python3.8 main.py
 ```
 Results 1, 2, and 3 in the paper correspond to ``h2o``, ``co2_2d``,
 and ``co2_3d``.

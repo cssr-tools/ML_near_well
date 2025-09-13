@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import pathlib
 import sys
@@ -5,7 +7,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import tensorflow as tf
 from nn import FEATURE_TO_INDEX, restructure_data
 from pyopmnearwell.ml import analysis, ensemble, integration, utils
 from pyopmnearwell.utils import units
@@ -99,7 +100,7 @@ if True:
 
 # Upscale and create dataset.
 if True:
-    extracted_data: np.ndarray = np.load(str(ensemble_dir / "features.npy"))
+    extracted_data = np.load(str(ensemble_dir / "features.npy"))
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
         extracted_data, runspecs_ensemble, data_dim=6, angle=ANGLE
     )
