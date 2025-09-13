@@ -1,25 +1,51 @@
-FROM openporousmedia/opmreleases:2024.06
+FROM openporousmedia/opmreleases:2024.10
+LABEL title="ml_near_well"
+LABEL description="Docker image to reproduce results in 'A Machine-Learned Near-Well Model in OPM Flow'"
+LABEL version="1.0"
+LABEL maintainer="Peter von Schultzendorff"
+LABEL email="peter.schultzendorff@uib.no"
 
-# Install Python 3.8 and pip.
+# Suppress interactive dialogue during package installation.
+ARG DEBIAN_FRONTEND=noninteractive 
+
+# Switch to root user to install packages.
+USER root
+
+# Install Python 3.8, pip, and LaTeX.
 RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt update && \
-    apt install -y git python3.8 python3.8-venv python3.8-dev && \
+    apt-get update && \
+    apt-get install -y \
+    git \
+    python3.8 \
+    python3.8-venv \
+    python3.8-dev \
+    texlive \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
+    cm-super \
+    dvipng && \
     python3.8 -m ensurepip --upgrade && \
     python3.8 -m pip install --upgrade pip setuptools wheel
 
-ENV WORKSPACE /workspaces
-RUN mkdir -p $WORKSPACE
-WORKDIR $WORKSPACE
+
+RUN useradd -ms /bin/bash diligent_researcher
+USER diligent_researcher
+
+ENV HOME=/home/diligent_researcher
+WORKDIR $HOME
+
+# Add python3.8 to PATH for the diligent_researcher
+RUN echo 'export PATH="/usr/bin:$PATH"' >> $HOME/.bashrc
 
 # Clone and install ML_near_well.
-RUN git clone https://github.com/cssr-tools/ML_near_well/ && \
+RUN git clone --branch reproducable https://github.com/cssr-tools/ML_near_well && \
     cd ML_near_well && \
-    python3.8 -m pip install -r requirements.txt
+    /usr/bin/python3.8 -m pip install -r requirements.txt
 
 # Clone and install pyopmnearwell.
-RUN cd .. && \
-    git clone https://github.com/cssr-tools/pyopmnearwell/2024-08_ML_near_well_article && \
+RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
     cd pyopmnearwell && \
-    python3.8 -m pip install -r requirements.txt && \
-    # python3.8 -m pip install -r dev-requirements.txt && \
     python3.8 -m pip install -e .
+
+# Default command.
+CMD [ "bash" ]
