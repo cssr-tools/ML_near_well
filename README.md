@@ -21,9 +21,12 @@ The ML functionality in OPM Flow does not work right now, we need ``OPM Flow 202
 for that and probably some updates to ``pyopmnearwell``
 
 # Installation
-To install, either build from the Dockerfile 
-1. ``docker build DOCKERFILE``
-2. ``docker run ML_near_well``
+To install, either build from the Dockerfile
+1. Clone this repo
+   ``git clone --branch reproducable https://github.com/cssr-tools/ML_near_well/``
+2. Navigate to the local repo 
+3. Run ``docker build .``
+4. Run ``docker run ML_near_well``
 
 or, if you prefer to install on your own machine,
 

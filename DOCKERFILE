@@ -11,7 +11,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Switch to root user to install packages.
 USER root
 
-# Install Python 3.8, pip, and LaTeX.
+# Install Python 3.10, pip, and LaTeX.
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y \
@@ -19,13 +19,17 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     python3.10 \
     python3.10-venv \
     python3.10-dev \
+    python3.10-distutils \
+    python3-pip \
     texlive \
     texlive-latex-extra \
     texlive-fonts-recommended \
     cm-super \
-    dvipng && \
-    python3.10 -m ensurepip --upgrade && \
-    python3.10 -m pip install --upgrade pip setuptools wheel
+    dvipng 
+
+RUN apt-get install -y 
+
+RUN python3.10 -m pip install --upgrade pip setuptools wheel
 
 
 RUN useradd -ms /bin/bash diligent_researcher
