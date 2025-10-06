@@ -13,18 +13,14 @@ reservoir simulator OPM Flow. In addition, our code uses the
 [pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package to run near-well
 ensemble simulations, extract data sets, and train models.
 
-All scripts were run with ``OPM Flow 2024.10``,
-``python 3.8.20``,  and the python packages specified in ``requirements_full.txt`` on
+**Note:** All scripts were run with ``OPM Flow 2024.10``,
+``python 3.10.12``,  and the python packages specified in ``requirements_full.txt`` on
 the ``:openporousmedia/opmreleases:2024.10:`` Docker image.
-
-# Installation
-**Note:** All scripts were run with on the ``:openporousmedia/opmreleases:2024.10:``
-Docker image with ``OPM Flow 2024.10``, ``python 3.8.20``,  and the python packages
-specified in ``requirements_full.txt``.
 
 The ML functionality in OPM Flow does not work right now, we need ``OPM Flow 2025.04``
 for that and probably some updates to ``pyopmnearwell``
 
+# Installation
 To install, either build from the Dockerfile 
 1. ``docker build DOCKERFILE``
 2. ``docker run ML_near_well``
@@ -87,7 +83,7 @@ that you use the right values to get correct results.
 
 # Reproduce results
 To reproduce the paper results and figures, run these commands (requires that
-``python3.8`` is an available command):
+``python3.10`` is an available command):
 ```
 cd examples
 bash run.bash
@@ -95,7 +91,7 @@ bash run.bash
 Alternatively, you can run each of the examples individually, e.g.,:
 ```
 cd examples/h2o_extended
-python3.8 main.py
+python3.10 main.py
 ```
 Results 1, 2, and 3 in the paper correspond to ``h2o``, ``co2_2d``,
 and ``co2_3d``.

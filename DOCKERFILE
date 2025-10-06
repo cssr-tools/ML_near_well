@@ -16,16 +16,16 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y \
     git \
-    python3.8 \
-    python3.8-venv \
-    python3.8-dev \
+    python3.10 \
+    python3.10-venv \
+    python3.10-dev \
     texlive \
     texlive-latex-extra \
     texlive-fonts-recommended \
     cm-super \
     dvipng && \
-    python3.8 -m ensurepip --upgrade && \
-    python3.8 -m pip install --upgrade pip setuptools wheel
+    python3.10 -m ensurepip --upgrade && \
+    python3.10 -m pip install --upgrade pip setuptools wheel
 
 
 RUN useradd -ms /bin/bash diligent_researcher
@@ -40,12 +40,12 @@ RUN echo 'export PATH="/usr/bin:$PATH"' >> $HOME/.bashrc
 # Clone and install ML_near_well.
 RUN git clone --branch reproducable https://github.com/cssr-tools/ML_near_well && \
     cd ML_near_well && \
-    /usr/bin/python3.8 -m pip install -r requirements.txt
+    python3.10 -m pip install -r requirements.txt
 
 # Clone and install pyopmnearwell.
 RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
     cd pyopmnearwell && \
-    python3.8 -m pip install -e .
+    python3.10 -m pip install -e .
 
 # Default command.
 CMD [ "bash" ]
