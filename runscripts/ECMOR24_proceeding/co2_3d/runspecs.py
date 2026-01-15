@@ -27,6 +27,7 @@ OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
 FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
 
 
+
 # Fixed values for all runs
 NUM_LAYERS: int = 5
 NUM_ZCELLS: int = NUM_LAYERS * 5
@@ -36,65 +37,66 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 200
+NUM_MEMBERS: int = 25
 
-# Permeability ranges for each layer.
-variables: dict[str, tuple[float, float, int]] = {
-    # Permeability of Utsira formation is 1000 - 5000 mD ~ 1e-12 - 5e-12 m^2.
-    # Anisotropy ratio is 0.1. The vertical permeability is calculated from the
-    # horizontal permeability in the ensemble.mako and integration.mako file.s
-    f"PERM_{i}": (
-        5e-13 * units.M2_TO_MILIDARCY,
-        1e-11 * units.M2_TO_MILIDARCY,
-        NUM_MEMBERS,
-    )  # unit: [mD]
-    for i in range(NUM_LAYERS)
+
+INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection 
+INJECTION_MAX = 8e6 * SURFACE_DENSITY     # high-end injection 
+
+time_variables: dict[str, tuple[float, float, int]] = {
+    "INJ1_DAYS": (7.0, 100.0, NUM_MEMBERS),
+    "SHUT_DAYS": (7.0, 100.0, NUM_MEMBERS),
+    "INJ2_DAYS": (7.0, 100.0, NUM_MEMBERS),
 }
 
-variables.update(
-    {
-        # Assumed pressure regime of Utsira formation.
-        "INIT_PRESSURE": (
-            50 * units.BAR_TO_PASCAL,
-            120 * units.BAR_TO_PASCAL,
-            NUM_MEMBERS,
-        ),  # unit: [Pa]
-    }
-)
+variables = {
+    "INJECTION_RATE": (INJECTION_MIN, INJECTION_MAX, NUM_MEMBERS),
+    "SCHEDULE_SEED": (0.0, 1.0, NUM_MEMBERS),
+    **time_variables,
+}
+
 
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 5,  # number of parallel runs
+    "npruns": 5,             # number of parallel runs
     "variables": variables,
     "constants": {
-        # Seabed temperature of 7°C + 35°C/km at 800-1100m depth ~ 40°C
-        "INIT_TEMPERATURE": 40,  # unit: [°C]
-        "SURFACE_DENSITY": SURFACE_DENSITY,  # unit: [kg/m^3]
-        # Surface rates for Utsira are 3e4 - 6e5 m^3/d on a perforation length of 38 m.
-        # We take larger values on a perforation length of 25 m to obtain a slightly
-        # larger pressure gradient.
-        # NOTE: The injection rate is 5x the injection rate for the CO2 2D example
-        # (which has a height of 5 m) to be able to compare both models.
-        # NOTE: 1e2 m^3/day is approx 2L/s for each meter of well.
-        "INJECTION_RATE": 5e6 * SURFACE_DENSITY,  # unit: [kg/d]
-        "INJECTION_TIME": 10.0,  # unit: [day]
-        "REPORTSTEP_LENGTH": 0.1,  # unit [d]
-        # The well is fully inside the innermost cells, which we consider as the "well"
-        # for easier computation of the data-driven well index. Therefore the well index
-        # for fine-scale simulation and integration differ.
-        "WELL_RADIUS": 0.2,  # unit: [m]
-        # Porosity ot Utsira formation is 0.34 - 0.36
-        "POROSITY": 0.35,  # unit: [-]
+        "PERM_0": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_1": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_2": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_3": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
+        "PERM_4": 2e-13 * units.M2_TO_MILIDARCY,
+
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,   # <-- comma added!
+
+        # Seabed temperature of 7°C + 35°C/km at 800–1100 m depth
+        "INIT_TEMPERATURE": 40,      # [°C]
+        "SURFACE_DENSITY": SURFACE_DENSITY,
+
+        "inj": [
+            [1, 1, 1, 1, 1.0],
+            [1, 1, 1, 1, 0.0],
+            [1, 1, 1, 1, 1.0],
+        ],
+
+
+        # IMPORTANT:
+        # Injection rate is now a variable -> do NOT include it in constants.
+
+        "INJECTION_TIME": 300,      # [day]
+        "REPORTSTEP_LENGTH": 1,    # [day]
+        "WELL_RADIUS": 0.2,          # [m]
+        "POROSITY": 0.2,
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
         "NUM_XCELLS": 50,
         "LENGTH": 100,
-        # Utsira formation has a height of ~300 m and connection length of 38 m
-        # (horizontal?).  We consider only the area along the connection.
-        "HEIGHT": 25,  # unit: [m]
+        "HEIGHT": 25,
+
         "FLOW": FLOW,
     },
 }
+
 
 ##########
 # Training

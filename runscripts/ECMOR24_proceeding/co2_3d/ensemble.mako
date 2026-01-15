@@ -21,9 +21,11 @@ pec * ((sw - swi) / (1.0 - sni - swi)) ** (-(1.0 / npe))  #Capillary pressure sa
 
 """Properties saturation functions"""
 """swi [-], sni [-], krn [-], krw [-], pec [Pa], nkrw [-], nkrn [-], npe [-], threshold cP evaluation, ignore swi for cP"""
-% for i in range(NUM_LAYERS):
-SWI{i} 0. SNI{i} 0.0 KRW{i} 1 KRN{i} 1 PRE{i} 0 NKRW{i} 2 NKRN{i} 2 HNPE{i} 2 THRE{i} 1e-4 IGN{i} 0
-% endfor
+SWI0 0.32 SNI0 0.10 KRW0 1 KRN0 1 PRE0   6120 NKRW0 1.5 NKRN0 1.5 HNPE0 1.5 THRE0 1e-4 IGN0 0
+SWI1 0.14 SNI1 0.10 KRW1 1 KRN1 1 PRE1   6120 NKRW1 1.5 NKRN1 1.5 HNPE1 1.5 THRE1 1e-4 IGN1 0
+SWI2 0.12 SNI2 0.10 KRW2 1 KRN2 1 PRE2   6120 NKRW2 1.5 NKRN2 1.5 HNPE2 1.5 THRE2 1e-4 IGN2 0
+SWI3 0.12 SNI3 0.10 KRW3 1 KRN3 1 PRE3   6120 NKRW3 1.5 NKRN3 1.5 HNPE3 1.5 THRE3 1e-4 IGN3 0
+SWI4 0.10 SNI4 0.10 KRW4 1 KRN4 1 PRE4   6120 NKRW4 1.5 NKRN4 1.5 HNPE4 1.5 THRE4 1e-4 IGN4 0
 
 """Properties rock"""
 """Kxy [mD], Kz [mD], phi [-], thickness [m]"""<% perms = [context.kwargs[f"PERM_{i}"] for i in range(NUM_LAYERS)] %>
@@ -31,6 +33,9 @@ SWI{i} 0. SNI{i} 0.0 KRW{i} 1 KRN{i} 1 PRE{i} 0 NKRW{i} 2 NKRN{i} 2 HNPE{i} 2 TH
 PERMXY${loop.index} ${perm} PERMZ${loop.index} ${0.5*perm} PORO${loop.index} ${POROSITY} THIC${loop.index} ${HEIGHT/NUM_LAYERS}
 % endfor
 
-"""Define the injection values""" 
-"""injection time [d], time step size to write results [d], maximum time step [d], injected fluid (0 wetting, 1 non-wetting), injection rates [kg/day]"""
-${INJECTION_TIME} 1e-1 1e-1 1 ${INJECTION_RATE/6} # Divided by 6, since the model runs on a cake of 60°
+"""Define the injection values"""
+<% durations = [float(INJ1_DAYS), float(SHUT_DAYS), float(INJ2_DAYS)] %>
+% for i, inj_step in enumerate(inj):
+${durations[i]} ${inj_step[1]} ${inj_step[2]} ${inj_step[3]} ${float(inj_step[4]) * float(INJECTION_RATE) / 6}
+% endfor
+
