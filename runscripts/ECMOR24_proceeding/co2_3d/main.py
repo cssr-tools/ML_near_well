@@ -78,14 +78,10 @@ if True:
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
-        # NOTE: To calculate the well index, we take the flow rate at the well under
-        # surface conditions. Cf. section 2.2.1 of A. F. Rasmussen et al., “The Open
-        # Porous Media Flow reservoir simulator,” Computers & Mathematics with
-        # Applications, vol. 81, pp. 159–185, Jan. 2021, doi:
-        # 10.1016/j.camwa.2020.05.014.
+
         ecl_keywords=["PRESSURE", "SGAS", "FLOGASI+"],
-        init_keywords=["PERMX", "DZ"],
-        summary_keywords=["FGIT"],
+        #init_keywords=["PERMX", "DZ"],
+        summary_keywords=["FGIT", "WGIR:INJ0"],
         keyword_scalings={
             # Scale pressure to [Pa], since OPM uses [Pa] internally (in the ``METRIC``
             # mode) i.e., the input to the neural network will be in [Pa].
@@ -95,6 +91,7 @@ if True:
             "PERMX": units.MILIDARCY_TO_M2,
         },
         seed=SEED,
+        keep_result_files=True,
     )
     np.save(str(ensemble_dir / "features"), extracted_data)
 
