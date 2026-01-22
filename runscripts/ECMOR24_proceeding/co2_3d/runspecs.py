@@ -46,7 +46,6 @@ INJECTION_MAX = 8e6 * SURFACE_DENSITY     # high-end injection
 time_variables: dict[str, tuple[float, float, int]] = {
     "INJ1_DAYS": (7.0, 100.0, NUM_MEMBERS),
     "SHUT_DAYS": (7.0, 100.0, NUM_MEMBERS),
-    "INJ2_DAYS": (7.0, 100.0, NUM_MEMBERS),
 }
 
 variables = {

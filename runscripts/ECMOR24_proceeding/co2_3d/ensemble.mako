@@ -34,8 +34,23 @@ PERMXY${loop.index} ${perm} PERMZ${loop.index} ${0.5*perm} PORO${loop.index} ${P
 % endfor
 
 """Define the injection values"""
-<% durations = [float(INJ1_DAYS), float(SHUT_DAYS), float(INJ2_DAYS)] %>
+<%
+inj1 = float(INJ1_DAYS)
+shut = float(SHUT_DAYS)
+
+total = float(INJECTION_TIME)  
+
+# Kutt hvis inj1 + shut er for lang
+if inj1 + shut > total:
+    shut = max(0.0, total - inj1)
+    if inj1 > total:
+        inj1 = total
+        shut = 0.0
+
+inj2_final = total - inj1 - shut
+durations = [inj1, shut, inj2_final]
+%>
 % for i, inj_step in enumerate(inj):
-${durations[i]} ${inj_step[1]} ${inj_step[2]} ${inj_step[3]} ${float(inj_step[4]) * float(INJECTION_RATE) / 6}
+${"%.6f" % durations[i]} ${inj_step[1]} ${inj_step[2]} ${inj_step[3]} ${float(inj_step[4]) * float(INJECTION_RATE) / 6}
 % endfor
 
