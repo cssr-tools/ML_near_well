@@ -40,7 +40,7 @@ SEED: int = 19123
 utils.enable_determinism(SEED)
 
 # Structure directories.
-ensemble_dir: pathlib.Path = dirname / "ensemble"
+ensemble_dir: pathlib.Path = dirname / "ensemble_run"
 data_dir: pathlib.Path = dirname / "dataset"
 data_stencil_dir: pathlib.Path = dirname / "dataset_stencil"
 nn_dir: pathlib.Path = dirname / "nn"
@@ -79,7 +79,7 @@ if True:
         runspecs_ensemble,
         ensemble_dir,
 
-        ecl_keywords=["PRESSURE", "SGAS", "FLOGASI+"],
+        ecl_keywords=["PRESSURE", "SGAS","FLOGASI+"],
         #init_keywords=["PERMX", "DZ"],
         summary_keywords=["FGIT", "WGIR:INJ0"],
         keyword_scalings={
@@ -88,7 +88,7 @@ if True:
             "PRESSURE": units.BAR_TO_PASCAL,
             # Scale permeability to [m^2], since OPM uses [m^2] internally (in the
             # ``METRIC`` mode) i.e., the input to the neural network will be in [m^2].
-            "PERMX": units.MILIDARCY_TO_M2,
+            #PERMX": units.MILIDARCY_TO_M2,
         },
         seed=SEED,
         keep_result_files=True,
@@ -99,9 +99,9 @@ if True:
 if True:
     extracted_data = np.load(str(ensemble_dir / "features.npy"))
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
-        extracted_data, runspecs_ensemble, data_dim=6, angle=ANGLE
+        extracted_data, runspecs_ensemble, data_dim=5,angle=ANGLE
     )
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=3, step_size_t=3)
+    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=30, step_size_t=3, keep_xcells=300)
     ensemble.store_dataset(features, targets, data_dir)
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
@@ -126,7 +126,6 @@ if True:
             comparison_param="layer",
             fixed_param_index=10,  # Plot for time step 10.
             radius_index=FEATURE_TO_INDEX["radius"],
-            permeability_index=FEATURE_TO_INDEX["permeability"],
             y_param="WI_log",
         )
         # Plot data WI vs time.
@@ -140,7 +139,6 @@ if True:
             final_time=runspecs_ensemble["constants"]["INJECTION_TIME"],
             fixed_param_index=3,  # Plot for radius 3.
             radius_index=FEATURE_TO_INDEX["radius"],
-            permeability_index=FEATURE_TO_INDEX["permeability"],
             y_param="WI_log",
         )
 
@@ -179,7 +177,6 @@ if True:
             comparison_param="layer",
             fixed_param_index=10,  # Plot for time step 10.
             radius_index=FEATURE_TO_INDEX["radius"],
-            permeability_index=FEATURE_TO_INDEX["permeability"],
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
@@ -196,7 +193,6 @@ if True:
             final_time=runspecs_ensemble["constants"]["INJECTION_TIME"],
             fixed_param_index=3,  # Plot for radius 3.
             radius_index=FEATURE_TO_INDEX["radius"],
-            permeability_index=FEATURE_TO_INDEX["permeability"],
             model=model,
             nn_dirname=nn_dir,
             trainspecs=trainspecs,
@@ -218,7 +214,7 @@ if True:
         runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
         dirname / "standardwell_impl_3d.mako",
         dirname / "standardwell.hpp",
-        local_feature_names=["pressure", "saturation", "permeability"],
+        local_feature_names=["pressure", "saturation"]
     )
     for integration_dir, runspecs_integration in zip(
         [

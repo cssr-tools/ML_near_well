@@ -19,13 +19,12 @@ FEATURE_TO_INDEX: dict[str, int] = {
     "saturation_upper": 3,
     "saturation": 4,
     "saturation_lower": 5,
-    "permeability_upper": 6,
-    "permeability": 7,
-    "permeability_lower": 8,
-    "radius": 9,
-    "total_injected_volume": 10,
-    "PI_analytical": 11,
+    "radius": 6,
+    "total_injected_volume": 7,
+    "injection_rate": 8,
+    "PI_analytical": 9,
 }
+
 
 plotted_values_units: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
@@ -77,7 +76,7 @@ def restructure_data(
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
     # Add upper and lower cell features to create the training data for the stencil.
     new_features_lst: list[np.ndarray] = []
-    for i in range(features.shape[-1] - 3):
+    for i in range(features.shape[-1] - 4):
         feature: np.ndarray = features[..., i]
 
         # Pad all local features and scale values.
@@ -161,28 +160,47 @@ def restructure_data(
 
     # Add back global features.
     # Radius
+    new_features_lst.append(features[..., -4])
+
+    # Total injected volume (FGIT)
     new_features_lst.append(features[..., -3])
 
-    # Total injected volume
+    # Injection rate (WGIR:INJ0)
     new_features_lst.append(features[..., -2])
 
-    # Analytical PI
+    # Analytical PI #############################################################
+
+    # Extract analytical PI
+    PI = features[..., -1]
+
+    # Small epsilon to avoid log10(0)
+    eps = 1e-12
+
     if trainspecs["WI_log"]:
+        # ---- Fix targets BEFORE log10 ----
+        # Clamp WI values: keep WI=0 but shift to eps to avoid log10(-inf)
+        targets = np.where(targets <= 0, eps, targets)
         targets = np.log10(targets)
-        new_features_lst.append(np.log10(features[..., -1]))
+
+        # ---- Fix PI feature BEFORE log10 ----
+        PI = np.where(PI <= 0, eps, PI)
+        new_features_lst.append(np.log10(PI))
     else:
-        new_features_lst.append(features[..., -1])
+        # No log transform → just ensure PI has no NaN
+        PI = np.nan_to_num(PI, nan=0.0, posinf=0.0, neginf=0.0)
+        new_features_lst.append(PI)
 
     # Analytical WI is not needed for training.
 
+    # Build final feature tensor
     new_features: np.ndarray = np.stack(new_features_lst, axis=-1)
 
-    # Select the correct features from the train specs
+    # Select chosen features
     new_features = new_features[
         ..., [FEATURE_TO_INDEX[feature] for feature in trainspecs["features"]]
     ]
 
-    # Flatten the dataset and store it
+    # Flatten dataset and store
     ensemble.store_dataset(
         new_features.reshape(-1, new_features.shape[-1]),
         targets.flatten()[..., None],

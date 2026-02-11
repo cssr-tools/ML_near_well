@@ -37,7 +37,7 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 25
+NUM_MEMBERS: int = 1
 
 
 INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection 
@@ -50,14 +50,13 @@ time_variables: dict[str, tuple[float, float, int]] = {
 
 variables = {
     "INJECTION_RATE": (INJECTION_MIN, INJECTION_MAX, NUM_MEMBERS),
-    "SCHEDULE_SEED": (0.0, 1.0, NUM_MEMBERS),
+    "SCHEDULE_SEED": (0.0, 2_147_483_647, NUM_MEMBERS),
     **time_variables,
 }
 
-
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 5,             # number of parallel runs
+    "npruns": 1,             # number of parallel runs
     "variables": variables,
     "constants": {
         "PERM_0": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
@@ -73,23 +72,21 @@ runspecs_ensemble: dict[str, Any] = {
         "SURFACE_DENSITY": SURFACE_DENSITY,
 
         "inj": [
-            [1, 1, 1, 1, 1.0],
-            [1, 1, 1, 1, 0.0],
-            [1, 1, 1, 1, 1.0],
-        ],
-
-
+        [1, 1, 1, 1, 1.0],  # INJ1
+        [1, 1, 1, 1, 0.0], # SHUT
+        [1, 1, 1, 1, 1.0],  # INJ2
+    ],
         # IMPORTANT:
         # Injection rate is now a variable -> do NOT include it in constants.
 
-        "INJECTION_TIME": 300,      # [day]
+        "INJECTION_TIME": 300,  # [day]
         "REPORTSTEP_LENGTH": 1,    # [day]
         "WELL_RADIUS": 0.2,          # [m]
         "POROSITY": 0.2,
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
-        "NUM_XCELLS": 50,
-        "LENGTH": 100,
+        "NUM_XCELLS": 500,
+        "LENGTH": 1000,
         "HEIGHT": 25,
 
         "FLOW": FLOW,
@@ -121,11 +118,9 @@ trainspecs: dict[str, Any] = {
         "saturation_upper",
         "saturation",
         "saturation_lower",
-        "permeability_upper",
-        "permeability",
-        "permeability_lower",
         "radius",
         "total_injected_volume",
+        "injection_rate",
         "PI_analytical",
     ],
     "kerasify": True,
@@ -159,7 +154,7 @@ del constants_integration_1["NUM_ZCELLS"]
 
 runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "name": "integration_3D_and_Peaceman_1",
-    "ensemble_name": "ensemble",
+    "ensemble_name": "ensemble_run",
     "nn_name": "trainspecs",
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]

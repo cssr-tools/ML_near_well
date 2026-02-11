@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 from pyopmnearwell.ml.upscale import BaseUpscaler
 from pyopmnearwell.utils import formulas
+from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
@@ -44,7 +45,7 @@ class CO2_3D_upscaler(BaseUpscaler):
         self,
         data: np.ndarray,
         runspecs: dict[str, Any],
-        data_dim: int = 6,
+        data_dim: int = 5,
         angle: float = math.pi / 3,
     ) -> None:
         """_summary_
@@ -112,12 +113,54 @@ class CO2_3D_upscaler(BaseUpscaler):
 
         self.angle: float = angle
 
+    def get_data_WI_safe(
+        self,
+        data: np.ndarray,
+        pressure_index: int,
+        flow_index: int,
+        eps: float = 1e-8,
+    ) -> np.ndarray:
+        """
+        Robust WI computation that does not crash for shut-in (dp ~ 0),
+        and returns shape == self.single_feature_shape.
+
+        Assumes:
+        - x=0 is the well cell (proxy for BHP)
+        - x=1: are the reservoir cells we keep
+        - vertical axis (zcells) must be reduced away
+        """
+        # Full fields: (..., zcells, xcells_plus_well)
+        p_full = data[..., pressure_index]
+        q_full = data[..., flow_index]
+
+        # Well cell pressure used as "bhp" proxy (still has zcells)
+        bhp = p_full[..., 0]                 # (..., zcells)
+
+        # Reservoir cells (drop well cell) -> (..., zcells, xcells)
+        p = p_full[..., 1:]
+        q = q_full[..., 1:]
+
+        # dp per zcell and xcell
+        dp = bhp[..., None] - p              # (..., zcells, xcells)
+
+        # Reduce vertical axis (zcells). Use the same strategy as pressures:
+        # average over zcells to get one WI per layer and xcell.
+        dp = np.average(dp, axis=-2)         # (..., xcells)
+        q = np.average(q, axis=-2)           # (..., xcells)
+
+        # Clamp dp away from zero (shut-in can give dp == 0)
+        dp = np.where(np.abs(dp) < eps, eps, dp)
+
+        WI = q / dp                          # (..., xcells)
+        return WI
+
     def create_ds(
         self,
         ensemble_dirname: pathlib.Path,
         step_size_x: int = 1,
         step_size_t: int = 1,
         calc_analytical_WI: bool = False,
+        keep_xcells: int | None = None,   # <-- NY
     ) -> tuple[np.ndarray, np.ndarray]:
         """Create dataset by collecting and upscaling features and target.
 
@@ -151,20 +194,31 @@ class CO2_3D_upscaler(BaseUpscaler):
         # NOTE: To upscale the saturation for, e.g., a cell of size 100x100m, one needs
         # radial values for up to (50/cos(45°))m = sqrt(2)*50m. Thus the maximum
         # possible equivalent cell size is "LENGTH" * sqrt(2).
-        cell_sizes: np.ndarray = formulas.cell_size(cell_boundary_radii)  # type: ignore
-        self.num_xcells = int(
+
+        #ENDRET 
+        cell_sizes = formulas.cell_size(cell_boundary_radii)
+
+        # eksisterende cut basert på LENGTH
+        length_cut = int(
             np.max(
                 np.nonzero(
                     cell_sizes <= self.runspecs["constants"]["LENGTH"] * math.sqrt(2)
                 )
             )
         )
+
+        # NY: overstyr til bare nærbrønn for treningsdata
+        if keep_xcells is not None:
+            self.num_xcells = min(length_cut, keep_xcells)
+        else:
+            self.num_xcells = length_cut
+
+        # kutt data i x-retning (merk +1 pga well-cell håndtering i dataen)
         self.data = self.data[..., : self.num_xcells + 1, :]
 
-        # Cut ``cell_center_radii`` but not ``cell_boundary_radii``. The latter is still
-        # needed in full for integration of saturation.
+        # kutt radii tilsvarende
         cell_center_radii = cell_center_radii[: self.num_xcells]
-
+        #ENDRET SLUTT
         # Update single_feature_shape`` s.t. all assertions still work.
         self.single_feature_shape = (
             self.num_members,
@@ -196,47 +250,42 @@ class CO2_3D_upscaler(BaseUpscaler):
         assert (
             feature_lst[-1].shape == self.single_feature_shape
         ), "Saturations feature has wrong shape."
-        # Get permeabilities.
-        feature_lst.append(self.get_homogeneous_values(self.data, 3))
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Permeabilities feature has wrong shape."
-        # Get equivalent well radii. Won't have single_feature_shape, but will be
-        # broadcasted later.
+        # Get equivalent well radii (broadcasted later)
         feature_lst.append(cell_center_radii)
-        # Get total injected volume. Multiply by 6 to account for cake model.
-        feature_lst.append(self.get_homogeneous_values(self.data, 5) * 6)
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Total injected volume feature has wrong shape."
-        # Get geometrical part of WI. Upscale cell heights to coarse cell grids. Each
-        # layer is one layer of coarse cells.
-        cell_heights: np.ndarray = self.get_homogeneous_values(self.data, 4) * (
-            self.runspecs["constants"]["NUM_ZCELLS"]
-            / self.runspecs["constants"]["NUM_LAYERS"]
-        )
+
+        # Total injected volume (FGIT), cake model factor
+        feature_lst.append(self.get_homogeneous_values(self.data, 3) * 6)
+        assert feature_lst[-1].shape == self.single_feature_shape, \
+            "Total injected volume feature has wrong shape."
+
+        # Injection rate (WGIR:INJ0) -> ligger på indeks 4
+        feature_lst.append(self.get_homogeneous_values(self.data, 4) * 6)
+        assert feature_lst[-1].shape == self.single_feature_shape, \
+            "Total injected volume feature has wrong shape."
+
+        # Constant cell height [m]
+        cell_heights = np.full(self.single_feature_shape, 5.0, dtype=float)
+
+        # Constant permeability [mD]
+        perm_const = 2e-13 * units.M2_TO_MILIDARCY
+        permeabilities = np.full(self.single_feature_shape, perm_const, dtype=float)
+
+        # Analytical well index
         feature_lst.append(
-            self.get_analytical_PI(  # type: ignore
-                permeabilities=feature_lst[2],
+            self.get_analytical_PI(
+                permeabilities=permeabilities,
                 cell_heights=cell_heights,
                 radii=cell_center_radii,
-                well_radius=cell_boundary_radii[
-                    0
-                ],  # The innermost well cell was disregarded for the radii. Well radius
-                # is the inner radius of the first cell.
+                well_radius=cell_boundary_radii[0],
             )
         )
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Geometrical part of WI feature has wrong shape."
+        assert feature_lst[-1].shape == self.single_feature_shape, \
+            "Geometrical part of WI feature has wrong shape."
 
-        # Get data-driven WI as target.
-        WI_data: np.ndarray = self.get_data_WI(
-            self.data,
-            0,
-            2,
-        )
-        assert WI_data.shape == self.single_feature_shape, "WI target has wrong shape."
+        # Data-driven WI (target)
+        WI_data = self.get_data_WI_safe(self.data, 0, 2)
+        assert WI_data.shape == self.single_feature_shape, \
+            "WI target has wrong shape."
 
         # Reduce size of data and unify shape.
         feature_shape: tuple = np.broadcast_shapes(
@@ -267,5 +316,45 @@ class CO2_3D_upscaler(BaseUpscaler):
                     OPM=self.runspecs["constants"]["OPM"],
                 )
             )
+        #ENDRET!
+        # Bygg endelige arrays
+        features = np.stack(feature_lst, axis=-1)   # shape: (nmembers, nt, nlayers, nx, nfeat)
+        targets  = WI_data                          # shape: (nmembers, nt, nlayers, nx)
 
-        return (np.stack(feature_lst, axis=-1), WI_data)
+        # --- FORCE FIXED NX FOR TRAINING SHAPE ---
+        DESIRED_NX = 11
+
+        def force_nx(a: np.ndarray) -> np.ndarray:
+            """
+            Tving nx=DESIRED_NX langs x-aksen.
+            For targets: a.ndim==4, x-aksen er axis=3
+            For features: a.ndim==5, x-aksen er axis=3
+            """
+            x_axis = 3
+            nx = a.shape[x_axis]
+
+            if nx > DESIRED_NX:
+                sl = [slice(None)] * a.ndim
+                sl[x_axis] = slice(0, DESIRED_NX)
+                return a[tuple(sl)]
+
+            if nx < DESIRED_NX:
+                # pad ved å kopiere siste x-søyle
+                sl_last = [slice(None)] * a.ndim
+                sl_last[x_axis] = slice(nx - 1, nx)        # siste x-kolonne med bevart dimensjon
+                last = a[tuple(sl_last)]
+
+                reps = [1] * a.ndim
+                reps[x_axis] = DESIRED_NX - nx
+                pad = np.repeat(last, reps[x_axis], axis=x_axis)
+
+                return np.concatenate([a, pad], axis=x_axis)
+
+            return a
+
+        features = force_nx(features)
+        targets  = force_nx(targets)
+        # --- END FORCE NX ---
+
+        return features, targets
+
