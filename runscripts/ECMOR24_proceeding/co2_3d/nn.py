@@ -22,7 +22,8 @@ FEATURE_TO_INDEX: dict[str, int] = {
     "radius": 6,
     "total_injected_volume": 7,
     "injection_rate": 8,
-    "PI_analytical": 9,
+    "time_days": 9,
+    "PI_analytical": 10,
 }
 
 
@@ -74,14 +75,16 @@ def restructure_data(
     # Load data.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
+    print("UPSCALE nfeat:", features.shape[-1])
+    print("UPSCALE time first 5:", features[0, :5, 0, 0, 5])
     # Add upper and lower cell features to create the training data for the stencil.
     new_features_lst: list[np.ndarray] = []
-    for i in range(features.shape[-1] - 4):
+
+    # ---- ONLY stencil local features: pressure (0) and saturation (1) ----
+    for i in [0, 1]:
         feature: np.ndarray = features[..., i]
 
         # Pad all local features and scale values.
-
-        # Pressure options:
         if i == 0:
             if trainspecs["pressure_unit"] == "bar":
                 feature = feature * units.PASCAL_TO_BAR
@@ -89,38 +92,22 @@ def restructure_data(
             if trainspecs["pressure_padding"] == "zeros":
                 padding_mode: str = "constant"
                 padding_value: float = 0.0
-
-            # TODO: Fix init padding mode. Where to get the pressure value from? The
-            # runspecs only have the ensemble values. The data truncates the init value.
-            # elif trainspecs["pressure_padding"] == "init":
-            #     padding_mode = "constant"
-            #     padding_values  = runspecs_ensemble["constant"]
-
             elif trainspecs["pressure_padding"] == "neighbor":
                 padding_mode = "edge"
                 padding_value = 0.0
 
-        # Saturation options:
         elif i == 1:
             if trainspecs["saturation_padding"] == "zeros":
                 padding_mode = "constant"
                 padding_value = 0.0
-
-        # Permeability options:
-        elif i == 2:
-            if trainspecs["permeability_log"]:
-                feature = np.log10(feature)
-
-            if trainspecs["permeability_padding"] == "zeros":
-                padding_mode = "constant"
+            else:
+                padding_mode = "edge"
                 padding_value = 0.0
 
         # Pad the third (layers) feature dimension.
-        # TODO: Make this more general
-        # Ignore MypY complaining.
         if padding_mode == "constant":
             upper_features = [
-                np.pad(  # type: ignore
+                np.pad(
                     feature[:, :, : -(j + 1), ...],
                     [(0, 0) if k != 2 else ((j + 1), 0) for k in range(feature.ndim)],
                     mode=padding_mode,
@@ -129,7 +116,7 @@ def restructure_data(
                 for j in range(math.floor(stencil_size / 2))
             ]
             lower_features = [
-                np.pad(  # type: ignore
+                np.pad(
                     feature[:, :, (j + 1) :, ...],
                     [(0, 0) if k != 2 else (0, (j + 1)) for k in range(feature.ndim)],
                     mode=padding_mode,
@@ -139,7 +126,7 @@ def restructure_data(
             ]
         else:
             upper_features = [
-                np.pad(  # type: ignore
+                np.pad(
                     feature[:, :, : -(j + 1), ...],
                     [(0, 0) if k != 2 else ((j + 1), 0) for k in range(feature.ndim)],
                     mode=padding_mode,
@@ -147,7 +134,7 @@ def restructure_data(
                 for j in range(math.floor(stencil_size / 2))
             ]
             lower_features = [
-                np.pad(  # type: ignore
+                np.pad(
                     feature[:, :, (j + 1) :, ...],
                     [(0, 0) if k != 2 else (0, (j + 1)) for k in range(feature.ndim)],
                     mode=padding_mode,
@@ -155,38 +142,30 @@ def restructure_data(
                 for j in range(math.floor(stencil_size / 2))
             ]
 
-        # Set together stencil.
         new_features_lst.extend(upper_features + [feature] + lower_features)
 
-    # Add back global features.
-    # Radius
-    new_features_lst.append(features[..., -4])
+    # ---- Add back global features using explicit indices in UPSCALER features tensor ----
+    RADIUS_IDX = 2
+    FGIT_IDX   = 3
+    WGIR_IDX   = 4
+    TIME_IDX   = 5
+    PI_IDX     = 6
 
-    # Total injected volume (FGIT)
-    new_features_lst.append(features[..., -3])
+    new_features_lst.append(features[..., RADIUS_IDX])  # radius
+    new_features_lst.append(features[..., FGIT_IDX])    # total injected volume
+    new_features_lst.append(features[..., WGIR_IDX])    # injection rate
+    new_features_lst.append(features[..., TIME_IDX])    # time_days
 
-    # Injection rate (WGIR:INJ0)
-    new_features_lst.append(features[..., -2])
+    PI = features[..., PI_IDX]
 
-    # Analytical PI #############################################################
-
-    # Extract analytical PI
-    PI = features[..., -1]
-
-    # Small epsilon to avoid log10(0)
     eps = 1e-12
-
     if trainspecs["WI_log"]:
-        # ---- Fix targets BEFORE log10 ----
-        # Clamp WI values: keep WI=0 but shift to eps to avoid log10(-inf)
         targets = np.where(targets <= 0, eps, targets)
         targets = np.log10(targets)
 
-        # ---- Fix PI feature BEFORE log10 ----
         PI = np.where(PI <= 0, eps, PI)
         new_features_lst.append(np.log10(PI))
     else:
-        # No log transform → just ensure PI has no NaN
         PI = np.nan_to_num(PI, nan=0.0, posinf=0.0, neginf=0.0)
         new_features_lst.append(PI)
 
@@ -194,6 +173,8 @@ def restructure_data(
 
     # Build final feature tensor
     new_features: np.ndarray = np.stack(new_features_lst, axis=-1)
+    
+    print("STENCIL time first 5:", new_features[0, :5, 0, 0, FEATURE_TO_INDEX["time_days"]])
 
     # Select chosen features
     new_features = new_features[

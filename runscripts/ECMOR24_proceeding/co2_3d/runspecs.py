@@ -121,6 +121,7 @@ trainspecs: dict[str, Any] = {
         "radius",
         "total_injected_volume",
         "injection_rate",
+        "time_days",
         "PI_analytical",
     ],
     "kerasify": True,

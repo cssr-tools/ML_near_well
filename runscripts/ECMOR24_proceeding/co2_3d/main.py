@@ -101,7 +101,7 @@ if True:
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
         extracted_data, runspecs_ensemble, data_dim=5,angle=ANGLE
     )
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=30, step_size_t=3, keep_xcells=300)
+    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=30, step_size_t=1, keep_xcells=300)
     ensemble.store_dataset(features, targets, data_dir)
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
 
@@ -114,7 +114,7 @@ if True:
         # A lot of the outer cells got disregarded during upscaling, because the
         # saturation could not be fully upscaled. -> Only 11 x values.
         num_xvalues=11,
-        step_size_t=3,
+        step_size_t=1,
     )
     for i in range(0, features.shape[0], 20):
         # Plot data WI vs radius.
@@ -165,7 +165,7 @@ if True:
         # A lot of the outer cells got disregarded during upscaling, because the
         # saturation could not be fully upscaled. -> Only 11 x values.
         num_xvalues=11,
-        step_size_t=3,
+        step_size_t=1,
     )
     for i in range(0, features.shape[0], 20):
         # Plot NN WI and data WI vs radius.

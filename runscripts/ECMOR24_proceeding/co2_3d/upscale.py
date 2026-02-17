@@ -195,7 +195,8 @@ class CO2_3D_upscaler(BaseUpscaler):
         # radial values for up to (50/cos(45°))m = sqrt(2)*50m. Thus the maximum
         # possible equivalent cell size is "LENGTH" * sqrt(2).
 
-        #ENDRET 
+        ################# ENDRET #################333
+        # for at bare de nærmeste cellene rundt brønnen skal tas med i teningsdata  
         cell_sizes = formulas.cell_size(cell_boundary_radii)
 
         # eksisterende cut basert på LENGTH
@@ -218,7 +219,8 @@ class CO2_3D_upscaler(BaseUpscaler):
 
         # kutt radii tilsvarende
         cell_center_radii = cell_center_radii[: self.num_xcells]
-        #ENDRET SLUTT
+        ########### ENDRET SLUTT ######################
+        
         # Update single_feature_shape`` s.t. all assertions still work.
         self.single_feature_shape = (
             self.num_members,
@@ -227,7 +229,7 @@ class CO2_3D_upscaler(BaseUpscaler):
             self.num_xcells,
         )
 
-        # Get all data.
+        # ============== Get all data ==============
         # Get pressures. Average vertically over all cells inside a layer.
         feature_lst.append(self.get_vertically_averaged_values(self.data, 0))
         assert (
@@ -262,6 +264,21 @@ class CO2_3D_upscaler(BaseUpscaler):
         feature_lst.append(self.get_homogeneous_values(self.data, 4) * 6)
         assert feature_lst[-1].shape == self.single_feature_shape, \
             "Total injected volume feature has wrong shape."
+            
+        # ---------------------------
+        # Time feature (days since start) - strengt økende
+        # ---------------------------
+        report_dt = float(self.runspecs["constants"]["REPORTSTEP_LENGTH"])  # dager per report step
+        t_days_1d = np.arange(self.num_timesteps, dtype=float) * report_dt  # (nt,)
+
+        # reshape til (1, nt, 1, 1) og broadcast til (nmembers, nt, nlayers, nx)
+        time_feature = t_days_1d[None, :, None, None]
+        time_feature = np.broadcast_to(time_feature, self.single_feature_shape)
+
+        feature_lst.append(time_feature)
+        assert feature_lst[-1].shape == self.single_feature_shape, \
+            "Time feature has wrong shape."
+
 
         # Constant cell height [m]
         cell_heights = np.full(self.single_feature_shape, 5.0, dtype=float)
@@ -316,7 +333,17 @@ class CO2_3D_upscaler(BaseUpscaler):
                     OPM=self.runspecs["constants"]["OPM"],
                 )
             )
-        #ENDRET!
+        ############# ENDRET! ###################
+        #størrelsen i x-retning på det som blir trent, bare 11 NX celler og mindre 
+        # altså de 11 første cellene ut fra brønnen. 
+        # Radius min / max:
+            #min radius: 0.26653400013959483
+            #max radius: 107.78704296356472
+        # We enforce a fixed number of radial cells (nx) to ensure
+        # consistent input shape for RNN training. This avoids
+        # variable geometry between ensemble runs and only takes 
+        # in the closest cells the near-well region. - might be fixed but works for now (maybe a bit overkill)
+
         # Bygg endelige arrays
         features = np.stack(feature_lst, axis=-1)   # shape: (nmembers, nt, nlayers, nx, nfeat)
         targets  = WI_data                          # shape: (nmembers, nt, nlayers, nx)
