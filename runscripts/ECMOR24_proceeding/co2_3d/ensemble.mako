@@ -30,26 +30,26 @@ SWI4 0.10 SNI4 0.10 KRW4 1 KRN4 1 PRE4   6120 NKRW4 2.0 NKRN4 2.0 HNPE4 2.0 THRE
 """Properties rock"""
 """Kxy [mD], Kz [mD], phi [-], thickness [m]"""<% perms = [context.kwargs[f"PERM_{i}"] for i in range(NUM_LAYERS)] %>
 % for perm in perms:
-PERMXY${loop.index} ${perm} PERMZ${loop.index} ${0.5*perm} PORO${loop.index} ${POROSITY} THIC${loop.index} ${HEIGHT/NUM_LAYERS}
+${loop.index} ${perm} ${0.5*perm} ${POROSITY} ${HEIGHT/NUM_LAYERS}
 % endfor
 
 """Define the injection values"""
 <%
-inj1 = float(INJ1_DAYS)
-shut = float(SHUT_DAYS)
+inj1 = int(round(float(INJ1_DAYS)))
+shut = int(round(float(SHUT_DAYS)))
+total = int(round(float(INJECTION_TIME))) 
 
-total = float(INJECTION_TIME)  
+if inj1 + shut > total - 1:
+    shut = max(0, total - 1 - inj1)
+    if inj1 > total - 1:
+        inj1 = total - 1
+        shut = 0
 
-# Kutt hvis inj1 + shut er for lang
-if inj1 + shut > total:
-    shut = max(0.0, total - inj1)
-    if inj1 > total:
-        inj1 = total
-        shut = 0.0
-
-inj2_final = total - inj1 - shut + 1
+inj2_final = total - inj1 - shut
 durations = [inj1, shut, inj2_final]
+
+reportstep = float(REPORTSTEP_LENGTH)
 %>
 % for i, inj_step in enumerate(inj):
-${"%.6f" % durations[i]} ${inj_step[1]} ${inj_step[2]} ${inj_step[3]} ${float(inj_step[4]) * float(INJECTION_RATE) / 6}
+${"%.6f" % durations[i]} ${reportstep} ${reportstep} ${inj_step[3]} ${float(inj_step[4]) * float(INJECTION_RATE) / 6}
 % endfor

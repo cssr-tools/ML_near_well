@@ -37,15 +37,15 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 1
+NUM_MEMBERS: int = 200
 
 
 INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection 
 INJECTION_MAX = 8e6 * SURFACE_DENSITY     # high-end injection 
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (7.0, 100.0, NUM_MEMBERS),
-    "SHUT_DAYS": (7.0, 100.0, NUM_MEMBERS),
+    "INJ1_DAYS": (3.0, 10.0, NUM_MEMBERS),
+    "SHUT_DAYS": (7.0, 27.0, NUM_MEMBERS),
 }
 
 variables = {
@@ -56,14 +56,14 @@ variables = {
 
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 1,             # number of parallel runs
+    "npruns": 5,             # number of parallel runs
     "variables": variables,
     "constants": {
-        "PERM_0": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_1": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_2": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_3": 2e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_4": 2e-13 * units.M2_TO_MILIDARCY,
+        "PERM_0": 5e-13  * units.M2_TO_MILIDARCY,
+        "PERM_1": 1e-12  * units.M2_TO_MILIDARCY,
+        "PERM_2": 2e-12  * units.M2_TO_MILIDARCY,
+        "PERM_3": 4e-12  * units.M2_TO_MILIDARCY,
+        "PERM_4": 8e-12  * units.M2_TO_MILIDARCY,
 
         "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,   # <-- comma added!
 
@@ -79,14 +79,14 @@ runspecs_ensemble: dict[str, Any] = {
         # IMPORTANT:
         # Injection rate is now a variable -> do NOT include it in constants.
 
-        "INJECTION_TIME": 300,  # [day]
-        "REPORTSTEP_LENGTH": 1,    # [day]
+        "INJECTION_TIME": 40,  # [day]
+        "REPORTSTEP_LENGTH": 0.5,    # [day]
         "WELL_RADIUS": 0.2,          # [m]
         "POROSITY": 0.2,
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
-        "NUM_XCELLS": 500,
-        "LENGTH": 1000,
+        "NUM_XCELLS": 200,
+        "LENGTH": 400,
         "HEIGHT": 25,
 
         "FLOW": FLOW,
@@ -121,11 +121,13 @@ trainspecs: dict[str, Any] = {
         "radius",
         "total_injected_volume",
         "injection_rate",
-        "time_days",
+        "time_since_last_shut_in",
+        "last_shut_in_duration",
+        #"time_days",
         "PI_analytical",
     ],
     "kerasify": True,
-    "architecture": "fcnn",
+    "architecture": "fcnn", 
 }
 
 

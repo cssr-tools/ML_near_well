@@ -4,6 +4,9 @@ import math
 import pathlib
 import sys
 
+import re
+from collections.abc import Iterable
+
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -73,47 +76,61 @@ for integration_dir in [
 # Angle between both sides of the triangle grid.
 ANGLE: float = math.pi / 3
 
-# Run ensemble and extract data.
+
+# 
+# # Run ensemble and extract data.
 if True:
+    print("=== BEFORE full_ensemble ===", flush=True)
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
-
-        ecl_keywords=["PRESSURE", "SGAS","FLOGASI+"],
-        #init_keywords=["PERMX", "DZ"],
+        ecl_keywords=["PRESSURE", "SGAS", "FLOGASI+"],
         summary_keywords=["FGIT", "WGIR:INJ0"],
         keyword_scalings={
-            # Scale pressure to [Pa], since OPM uses [Pa] internally (in the ``METRIC``
-            # mode) i.e., the input to the neural network will be in [Pa].
             "PRESSURE": units.BAR_TO_PASCAL,
-            # Scale permeability to [m^2], since OPM uses [m^2] internally (in the
-            # ``METRIC`` mode) i.e., the input to the neural network will be in [m^2].
-            #PERMX": units.MILIDARCY_TO_M2,
         },
         seed=SEED,
-        keep_result_files=True,
+        #keep_result_files=True,
+    )
+    print("=== AFTER full_ensemble ===", flush=True)
+    print(
+        f"extracted_data shape={extracted_data.shape} dtype={extracted_data.dtype}",
+        flush=True,
     )
     np.save(str(ensemble_dir / "features"), extracted_data)
-
-# Upscale and create dataset.
+    print("=== AFTER np.save(features) ===", flush=True)
+ 
 if True:
-    extracted_data = np.load(str(ensemble_dir / "features.npy"))
+    extracted_data = np.load(str(ensemble_dir / "features.npy"), mmap_mode="r")
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
         extracted_data, runspecs_ensemble, data_dim=5,angle=ANGLE
     )
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=30, step_size_t=1, keep_xcells=300)
+    print("\n=== STAGE: upscaler.create_ds START ===", flush=True)
+    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=12, step_size_t=1, keep_xcells=142)
+    # Fjern de to innerste punktene nær brønnen
+    features = features[..., 2:, :]
+    targets = targets[..., 2:]
+    
+    print(f"create_ds shapes: features={features.shape}, targets={targets.shape}", flush=True)
+    print(f"create_ds dtypes: features={features.dtype}, targets={targets.dtype}", flush=True)
+    print("=== STAGE: upscaler.create_ds DONE ===", flush=True)
+    print("\n=== STAGE: store_dataset(raw) START ===", flush=True)
     ensemble.store_dataset(features, targets, data_dir)
+    print("=== STAGE: store_dataset(raw) DONE ===", flush=True)
+    print("\n=== STAGE: restructure_data START ===", flush=True)
+
     restructure_data(data_dir, data_stencil_dir, trainspecs, stencil_size=3)
+    print("=== STAGE: restructure_data DONE ===", flush=True)
 
 # Plot some WIs.
-if True:
+"""if True:
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
         data_stencil_dir,
         # A lot of the outer cells got disregarded during upscaling, because the
         # saturation could not be fully upscaled. -> Only 11 x values.
-        num_xvalues=11,
+        num_xvalues=10,
         step_size_t=1,
     )
     for i in range(0, features.shape[0], 20):
@@ -141,6 +158,8 @@ if True:
             radius_index=FEATURE_TO_INDEX["radius"],
             y_param="WI_log",
         )
+"""
+print("\n=== STAGE: tune_and_train START ===", flush=True)
 
 # Tune and train model.
 if True:
@@ -154,9 +173,9 @@ if True:
         epochs=1000,
         executions_per_trial=1,
     )
-
+print("=== STAGE: tune_and_train DONE ===", flush=True)
 # Do some plotting of results and sensitivity analysis.
-if True:
+"""if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
         runspecs_ensemble,
@@ -164,7 +183,7 @@ if True:
         data_stencil_dir,
         # A lot of the outer cells got disregarded during upscaling, because the
         # saturation could not be fully upscaled. -> Only 11 x values.
-        num_xvalues=11,
+        num_xvalues=10,
         step_size_t=1,
     )
     for i in range(0, features.shape[0], 20):
@@ -206,7 +225,7 @@ if True:
         feature_names=trainspecs["features"],
         legend=False,
     )
-
+"""
 # Integrate into OPM.
 if True:
     integration.recompile_flow(
@@ -235,8 +254,7 @@ if True:
             integration_dir,
             dirname / "integration.mako",
         )
-
-
+        """
 # Plot results.
 if True:
     for savedir_3d in [
@@ -280,4 +298,4 @@ if True:
         read_and_plot_bhp(
             summary_files, labels, colors, linestyles, savedir_3d / "bhp.svg"
         )
-        bhp_error(summary_files, savedir_3d / "bhp_diffs.csv", 0)
+        bhp_error(summary_files, savedir_3d / "bhp_diffs.csv", 0)"""

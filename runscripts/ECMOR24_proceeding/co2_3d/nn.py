@@ -22,8 +22,10 @@ FEATURE_TO_INDEX: dict[str, int] = {
     "radius": 6,
     "total_injected_volume": 7,
     "injection_rate": 8,
-    "time_days": 9,
-    "PI_analytical": 10,
+    "time_since_last_shut_in": 9,
+    "last_shut_in_duration": 10,
+    "time_days": 11,
+    "PI_analytical": 12,
 }
 
 
@@ -37,6 +39,7 @@ comparisons_inverse: dict[str, str] = {
     "timesteps": "layer",
     "layers": "timestep or radius",
 }
+
 
 
 def restructure_data(
@@ -60,12 +63,10 @@ def restructure_data(
     4. SATURATION - upper neighbor
     5. SATURATION - cell
     6. SATURATION - lower neighbor
-    7. PERMEABILITY - upper neighbor
-    8. PERMEABILITY - cell
-    9. PERMEABILITY - lower neighbor
     10. radius
-    11. total injected gas
-    12. analytical PI
+    11. Injection rate 
+    12. total injected gas
+    13. analytical PI
 
     Args:
         data_dirname (str | pathlib.Path): _description_
@@ -76,8 +77,9 @@ def restructure_data(
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
     print("UPSCALE nfeat:", features.shape[-1])
-    print("UPSCALE time first 5:", features[0, :5, 0, 0, 5])
-    # Add upper and lower cell features to create the training data for the stencil.
+    print("UPSCALE tslsi first 5:", features[0, :5, 0, 0, 5])
+    print("UPSCALE last shut first 5:", features[0, :5, 0, 0, 6])
+    print("UPSCALE time first 5:", features[0, :5, 0, 0, 7])    # Add upper and lower cell features to create the training data for the stencil.
     new_features_lst: list[np.ndarray] = []
 
     # ---- ONLY stencil local features: pressure (0) and saturation (1) ----
@@ -148,42 +150,55 @@ def restructure_data(
     RADIUS_IDX = 2
     FGIT_IDX   = 3
     WGIR_IDX   = 4
-    TIME_IDX   = 5
-    PI_IDX     = 6
+    TSLSI_IDX  = 5   # time_since_last_shut_in
+    LSID_IDX   = 6   # last_shut_in_duration
+    TIME_IDX   = 7
+    PI_IDX     = 8
 
-    new_features_lst.append(features[..., RADIUS_IDX])  # radius
-    new_features_lst.append(features[..., FGIT_IDX])    # total injected volume
-    new_features_lst.append(features[..., WGIR_IDX])    # injection rate
-    new_features_lst.append(features[..., TIME_IDX])    # time_days
+    new_features_lst.append(features[..., RADIUS_IDX])   # radius
+    new_features_lst.append(features[..., FGIT_IDX])     # total injected volume
+    new_features_lst.append(features[..., WGIR_IDX])     # injection rate
+    new_features_lst.append(features[..., TSLSI_IDX])    # time_since_last_shut_in
+    new_features_lst.append(features[..., LSID_IDX])     # last_shut_in_duration
+    new_features_lst.append(features[..., TIME_IDX])     # time_days
 
+    # --- PI feature ---
     PI = features[..., PI_IDX]
-
     eps = 1e-12
+
+    # Always append PI as a feature (log if WI_log, same convention as before)
     if trainspecs["WI_log"]:
-        targets = np.where(targets <= 0, eps, targets)
-        targets = np.log10(targets)
-
-        PI = np.where(PI <= 0, eps, PI)
-        new_features_lst.append(np.log10(PI))
+        PI_safe = np.where(np.isfinite(PI) & (PI > 0), PI, 1.0)
+        new_features_lst.append(np.log10(np.maximum(PI_safe, eps)))
     else:
-        PI = np.nan_to_num(PI, nan=0.0, posinf=0.0, neginf=0.0)
-        new_features_lst.append(PI)
+        new_features_lst.append(np.nan_to_num(PI, nan=0.0, posinf=0.0, neginf=0.0))
 
-    # Analytical WI is not needed for training.
+    # --- Build final feature tensor ---
+    new_features = np.stack(new_features_lst, axis=-1)
 
-    # Build final feature tensor
-    new_features: np.ndarray = np.stack(new_features_lst, axis=-1)
-    
-    print("STENCIL time first 5:", new_features[0, :5, 0, 0, FEATURE_TO_INDEX["time_days"]])
+################ENDRET! sparer kun på de radene som inneholder WI#############
+    # --- Select chosen features --- 
+    new_features = new_features[..., [FEATURE_TO_INDEX[f] for f in trainspecs["features"]]]
 
-    # Select chosen features
-    new_features = new_features[
-        ..., [FEATURE_TO_INDEX[feature] for feature in trainspecs["features"]]
-    ]
+    # --- Flatten ---
+    X = new_features.reshape(-1, new_features.shape[-1])   # (N, F)
+    y = targets.reshape(-1)                                # (N,)
 
-    # Flatten dataset and store
+    # --- NaN-safe target transform + drop unlabeled (shut-in) ---
+    valid = np.isfinite(y)
+    if trainspecs["WI_log"]:
+        valid &= (y > 0)
+        y_safe = np.where(valid, y, 1.0)
+        y_out = np.log10(np.maximum(y_safe, eps))
+    else:
+        y_out = np.where(valid, y, 0.0)
+
+    X = X[valid]
+    y_out = y_out[valid]
+
     ensemble.store_dataset(
-        new_features.reshape(-1, new_features.shape[-1]),
-        targets.flatten()[..., None],
+        X.astype(np.float32),
+        y_out[..., None].astype(np.float32),
         new_data_dirname,
     )
+
