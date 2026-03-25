@@ -17,9 +17,8 @@ from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
-FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
+FLOW: pathlib.Path = pathlib.Path("/usr") / "local" / "bin" / "flow"
 
 
 # Surface density of CO2 - calculated with OPM PVT.
@@ -112,8 +111,8 @@ runspecs_integration_1: dict[str, Any] = {
         **{
             "PERM": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
             "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
-            "OPM": OPM_ML,
-            "FLOW": FLOW_ML,
+            "OPM": OPM,
+            "FLOW": FLOW,
             # Well radius is read from the radius of the innermost grid cell of the ensemble
             # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
             # translate from a triangle to a radial grid. Thus it differs from the ensemble

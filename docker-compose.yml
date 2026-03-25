@@ -1,0 +1,7 @@
+services:
+  ml_near_well:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ml_near_well:0.1
+    container_name: ml_near_well

@@ -7,11 +7,10 @@ from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
-FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
+FLOW: pathlib.Path = pathlib.Path("/usr") / "local" / "bin" / "flow"
 
-NUM_MEMBERS: int = 1000
+NUM_MEMBERS: int = 5
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
@@ -96,8 +95,8 @@ runspecs_integration_1: dict[str, Any] = {
             # translate from a triangle to a radial grid. Thus it differs from the ensemble
             # well radius.
             "WELL_RADIUS": 0.25,  # unit: [m]
-            "OPM": OPM_ML,
-            "FLOW": FLOW_ML,
+            "OPM": OPM,
+            "FLOW": FLOW,
         },
     },
 }

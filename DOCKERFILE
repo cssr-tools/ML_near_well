@@ -1,36 +1,87 @@
-FROM openporousmedia/opmreleases:2024.10
+FROM ubuntu:22.04
 LABEL title="ml_near_well"
 LABEL description="Docker image to reproduce results in 'A Machine-Learned Near-Well Model in OPM Flow'"
-LABEL version="1.0"
+LABEL version="0.1"
 LABEL maintainer="Peter von Schultzendorff"
 LABEL email="peter.schultzendorff@uib.no"
 
 # Suppress interactive dialogue during package installation.
-ARG DEBIAN_FRONTEND=noninteractive 
+ARG DEBIAN_FRONTEND=noninteractive
+ARG OPM_REF=release/2025.04
+ARG OPM_BUILD_JOBS=2
 
 # Switch to root user to install packages.
 USER root
 
-# Install Python 3.10, pip, and LaTeX.
-RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y \
+# Add OPM PPA so supported Dune and prerequisite packages are available on Ubuntu 22.04.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    dirmngr \
+    gnupg \
+    software-properties-common && \
+    add-apt-repository -y ppa:opm/ppa && \
+    apt-get update
+
+# Install build and runtime dependencies for OPM source builds and Python workflows.
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cm-super-minimal \
+    cmake \
+    dvipng \
+    gfortran \
     git \
+    libcjson-dev \
+    libblas-dev \
+    libboost-all-dev \
+    libdune-common-dev \
+    libdune-geometry-dev \
+    libdune-grid-dev \
+    libdune-istl-dev \
+    libfmt-dev \
+    liblapack-dev \
+    mpi-default-bin \
+    mpi-default-dev \
+    libsuitesparse-dev \
+    libtrilinos-zoltan-dev \
+    pkg-config \
     python3.10 \
-    python3.10-venv \
     python3.10-dev \
     python3.10-distutils \
+    python3.10-venv \
     python3-pip \
     texlive \
-    texlive-latex-extra \
     texlive-fonts-recommended \
-    cm-super \
-    dvipng 
-
-RUN apt-get install -y 
+    texlive-latex-extra \
+    zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN python3.10 -m pip install --upgrade pip setuptools wheel
 
+ENV OPM_ROOT=/opt/opm_src
+ENV OPM_PATH=$OPM_ROOT
+ENV FLOW_PATH=$OPM_ROOT/opm-simulators/build/bin/flow
+
+# Clone and build OPM from source following the documented sibling-repository layout.
+RUN mkdir -p "$OPM_ROOT" && \
+    cd "$OPM_ROOT" && \
+    for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
+        git clone --branch "$OPM_REF" --depth 1 "https://github.com/OPM/${repo}.git"; \
+    done && \
+    for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
+        mkdir -p "$repo/build" && \
+        cd "$repo/build" && \
+        cmake -DCMAKE_BUILD_TYPE=Release .. && \
+        if [ "$repo" = "opm-simulators" ]; then \
+            make -j"$OPM_BUILD_JOBS" flow && \
+            (make -j"$OPM_BUILD_JOBS" flow_gaswater_dissolution_diffuse || true); \
+        else \
+            make -j"$OPM_BUILD_JOBS"; \
+        fi && \
+        cd "$OPM_ROOT"; \
+    done && \
+    ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
+    ln -sf "$OPM_ROOT/opm-common/build/bin/co2brinepvt" /usr/local/bin/co2brinepvt
 
 RUN useradd -ms /bin/bash diligent_researcher
 USER diligent_researcher
@@ -38,11 +89,11 @@ USER diligent_researcher
 ENV HOME=/home/diligent_researcher
 WORKDIR $HOME
 
-# Add python3.8 to PATH for the diligent_researcher
-RUN echo 'export PATH="/usr/bin:$PATH"' >> $HOME/.bashrc
+# Ensure standard install locations and source-built Flow are on PATH.
+RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> "$HOME/.bashrc"
 
 # Clone and install ML_near_well.
-RUN git clone --branch reproducable https://github.com/cssr-tools/ML_near_well && \
+RUN git clone --branch reproducible https://github.com/cssr-tools/ML_near_well && \
     cd ML_near_well && \
     python3.10 -m pip install -r requirements.txt
 
@@ -51,5 +102,5 @@ RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tool
     cd pyopmnearwell && \
     python3.10 -m pip install -e .
 
-# Default command.
-CMD [ "bash" ]
+# Default command: run the reproducibility workflow.
+CMD ["bash", "-lc", "cd /home/diligent_researcher/ML_near_well && bash runscripts/run.bash"]

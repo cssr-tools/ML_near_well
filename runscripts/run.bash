@@ -1,4 +1,4 @@
-cd runscripts/paper/h2o
+cd runscripts/ECMOR24_proceeding/h2o
 python3.10 main.py
 cd ../co2_2d
 python3.10 main.py

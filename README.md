@@ -1,4 +1,9 @@
 # ML_near_well
+[![DOI]()]()
+[![arXiv](https://img.shields.io/badge/arXiv-2601.11193-b31b1b.svg)](https://arxiv.org/abs/2601.11193)
+
+Companion code for[*A machine-learned near-well model in OPM Flow, von Schultzendorff et al. (2024)*](https://www.earthdoc.org/content/papers/10.3997/2214-4609.202437033).
+
 **ML_near_well** is a collection of runfiles for a machine-learned near-well model. The
 key idea is to replace the analytical expression for well transmissibility from
 Peaceman-type well models with a neural network. The network is trained on data from
@@ -13,38 +18,36 @@ reservoir simulator OPM Flow. In addition, our code uses the
 [pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package to run near-well
 ensemble simulations, extract data sets, and train models.
 
-**Note:** All scripts were run with ``OPM Flow 2024.10``,
-``python 3.10.12``,  and the python packages specified in ``requirements_full.txt`` on
-the ``:openporousmedia/opmreleases:2024.10:`` Docker image.
-
-The ML functionality in OPM Flow does not work right now, we need ``OPM Flow 2025.04``
-for that and probably some updates to ``pyopmnearwell``
+**Note:** All scripts were run with ``OPM Flow 2025.04``,
+``python 3.10.12``,  and the python packages specified in ``requirements_full.txt``.
 
 # Installation
-To install, either build from the Dockerfile
-1. Clone this repo
-   ``git clone --branch reproducable https://github.com/cssr-tools/ML_near_well/``
-2. Navigate to the local repo 
-3. Run ``docker build .``
-4. Run ``docker run ML_near_well``
+To install and run with Docker:
+```bash
+git clone https://github.com/cssr-tools/ML_near_well -b reproducible
+cd ML_near_well
+docker-compose up
+```
 
 or, if you prefer to install on your own machine,
 
 1. Clone this repo
-   ``git clone --branch reproducable https://github.com/cssr-tools/ML_near_well/``
+   ``git clone --branch reproducible https://github.com/cssr-tools/ML_near_well/``
 2. Create a virtual environment (e.g., with ``conda``), navigate to the local repo, and
    install the dependencies with
    ``pip install -r requirements.txt``
    or (if you run into errors at any point)
    ``pip install -r requirements_full.txt``
 3. Clone ``pyopmnearwell``
-   ``git clone --branch 024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell/``,
+   ``git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell/``,
    navigate to the local repo, and install ``pyopmnearwell`` with
    ``pip install .``
 4. Install OPM Flow or build from source https://opm-project.org/?page_id=36 (needed to
    run the ensemble scripts).
-5. Install an OPM Flow 
-6. Update the paths to OPM Flow in the runscripts.
+5. The paper runscripts read ``OPM_PATH`` and ``FLOW_PATH`` environment variables.
+6. By default, local runs fall back to ``OPM=/usr`` and ``FLOW=/usr/bin/flow``. In the
+   Docker image, ``OPM_PATH`` points to the source tree under ``/opt/opm_src``.
+7. If needed, update path logic in:
 ```
 h2o/runspecs.py
 co2_2d/runspecs.py
@@ -85,11 +88,19 @@ that you use the right values to get correct results.
   injection rate, still need to be adjusted to a full 360° well.
 
 # Reproduce results
-To reproduce the paper results and figures, run these commands (requires that
-``python3.10`` is an available command):
+To reproduce the paper results and figures locally (requires that ``python3.10`` is an
+available command), run:
 ```
-cd examples
-bash run.bash
+bash runscripts/run.bash
+```
+
+With Docker, the image default command already runs the same script:
+```
+docker run --rm ml_near_well:0.1
+```
+or
+```
+docker compose up --build
 ```
 Alternatively, you can run each of the examples individually, e.g.,:
 ```
