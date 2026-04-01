@@ -159,37 +159,55 @@ def plot_member_wi_vs_time(
 
     X_shaped = build_shaped_stencil_features(raw_features, trainspecs, stencil_size=3)
 
+    WGIR_IDX = 4
+
     X_member = X_shaped[member]
     y_member = raw_targets[member]
+    q_member = raw_features[member, ..., WGIR_IDX]
 
     saved_shape = list(X_member.shape)
     X_flat = X_member.reshape(-1, saved_shape[-1])
 
-    y_pred_log = nn.scale_and_evaluate(
-        model,
-        X_flat,
-        nn_dir / "scalings.csv",
-    ).numpy().reshape(saved_shape[:-1])
+    q_mask = q_member > 0.0
+    q_mask_flat = q_mask.reshape(-1)
 
-    if trainspecs["WI_log"]:
-        y_pred = 10 ** y_pred_log
-    else:
-        y_pred = y_pred_log
+    y_pred_flat = np.full(X_flat.shape[0], np.nan, dtype=np.float32)
+
+    if np.any(q_mask_flat):
+        X_eval = X_flat[q_mask_flat]
+        y_pred_log_eval = nn.scale_and_evaluate(
+            model,
+            X_eval,
+            nn_dir / "scalings.csv",
+        ).numpy().reshape(-1)
+
+        if trainspecs["WI_log"]:
+            y_pred_eval = 10 ** y_pred_log_eval
+        else:
+            y_pred_eval = y_pred_log_eval
+
+        y_pred_flat[q_mask_flat] = y_pred_eval.astype(np.float32)
+
+    y_pred = y_pred_flat.reshape(saved_shape[:-1])
 
     y_true = y_member.copy()
 
-    final_time = runspecs_ensemble["constants"]["INJECTION_TIME"]
+    reportstep_length = 0.5  # s################################set manually######################################
     nt = X_member.shape[0]
-    x_values = np.linspace(0, final_time, nt)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
+    x_values = np.arange(nt) * reportstep_length
+    
+    fig, ax = plt.subplots(figsize=(16, 5))
     colors = plt.cm.Blues(np.linspace(1, 0.5, y_true.shape[1]))
 
     for layer, color in zip(range(y_true.shape[1]), colors):
         y_true_layer = y_true[:, layer, radius_index]
         y_pred_layer = y_pred[:, layer, radius_index]
+        q_layer = q_member[:, layer, radius_index]
 
-        valid = np.isfinite(y_true_layer) & (y_true_layer > 0)
+        q_valid = q_layer > 0.0
+        target_valid = np.isfinite(y_true_layer) & (y_true_layer > 0)
+        valid = q_valid & target_valid
+
         y_true_plot = np.where(valid, y_true_layer, np.nan)
         y_pred_plot = np.where(valid, y_pred_layer, np.nan)
 
@@ -199,6 +217,7 @@ def plot_member_wi_vs_time(
     ax.set_xlabel("Time [d]")
     ax.set_ylabel(r"WI [$m^4\,s/kg$]")
     ax.set_title(f"WI vs time for member {member} at radius index {radius_index}")
+    ax.set_xlim(-1, x_values[-1] + 1)
 
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.72, box.height])
@@ -214,7 +233,7 @@ def plot_member_wi_vs_time(
 
 
 if __name__ == "__main__":
-    data_dir = dirname / "dataset"
+    data_dir = dirname / "dataset_ex"
     nn_dir = dirname / "nn"
 
     ds = tf.data.Dataset.load(str(data_dir))
@@ -225,7 +244,7 @@ if __name__ == "__main__":
 
     model = keras.models.load_model(nn_dir / "bestmodel.keras")
 
-    plot_dir = nn_dir / "late_members"
+    plot_dir = nn_dir / "late_members_ex"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     start_idx = max(raw_features.shape[0] - 30, 0)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import pathlib
 import sys
-
+import h5py
 import re
 from collections.abc import Iterable
 
@@ -90,6 +90,8 @@ if True:
             "PRESSURE": units.BAR_TO_PASCAL,
         },
         seed=SEED,
+        save_intermediate_data=True,
+        intermediate_data_dir=ensemble_dir / "intermediate_data",
         #keep_result_files=True,
     )
     print("=== AFTER full_ensemble ===", flush=True)
@@ -97,13 +99,27 @@ if True:
         f"extracted_data shape={extracted_data.shape} dtype={extracted_data.dtype}",
         flush=True,
     )
-    np.save(str(ensemble_dir / "features"), extracted_data)
-    print("=== AFTER np.save(features) ===", flush=True)
- 
-if True:
-    extracted_data = np.load(str(ensemble_dir / "features.npy"), mmap_mode="r")
+    batch_size = 10  # Juster batch-størrelse etter hvor mye RAM du har
+    num_members = extracted_data.shape[0]
+    print("=== BEFORE HDF5 save ===", flush=True)
+    with h5py.File(str(ensemble_dir / "features.h5"), "w") as f:
+        dset = f.create_dataset("features", shape=extracted_data.shape, dtype=extracted_data.dtype, compression="gzip")
+        for start in range(0, num_members, batch_size):
+            end = min(start + batch_size, num_members)
+            dset[start:end] = extracted_data[start:end]
+            print(f"Saved batch {start}-{end}", flush=True)
+    print("=== AFTER h5py save(features) ===", flush=True)
+        # Les fra HDF5 i stedet for np.load
+        
+    print("=== BEFORE HDF5 load ===", flush=True)
+
+    with h5py.File(str(ensemble_dir / "features.h5"), "r") as f:
+        extracted_data = f["features"][:]  # eller bruk f["features"] direkte hvis du vil ha "mmap"-lignende tilgang
+    print("=== AFTER HDF5 load ===", flush=True)
+
+    print("=== BEFORE upscaler.create_ds ===", flush=True)
     upscaler: CO2_3D_upscaler = CO2_3D_upscaler(
-        extracted_data, runspecs_ensemble, data_dim=5,angle=ANGLE
+        extracted_data, runspecs_ensemble, data_dim=5, angle=ANGLE
     )
     print("\n=== STAGE: upscaler.create_ds START ===", flush=True)
     features, targets = upscaler.create_ds(ensemble_dir, step_size_x=12, step_size_t=1, keep_xcells=142)

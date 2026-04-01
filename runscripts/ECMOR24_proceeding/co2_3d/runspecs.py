@@ -37,15 +37,18 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 200
+NUM_MEMBERS: int = 170
 
 
 INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection 
-INJECTION_MAX = 8e6 * SURFACE_DENSITY     # high-end injection 
+INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection 
+
+#INJECTION_MIN = 7.5e5 * SURFACE_DENSITY   # ~1400 t/d
+#INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (3.0, 10.0, NUM_MEMBERS),
-    "SHUT_DAYS": (7.0, 27.0, NUM_MEMBERS),
+    "INJ1_DAYS": (5.0, 90.0, NUM_MEMBERS), 
+    "SHUT_DAYS": (7.0, 40.0, NUM_MEMBERS),
 }
 
 variables = {
@@ -79,7 +82,7 @@ runspecs_ensemble: dict[str, Any] = {
         # IMPORTANT:
         # Injection rate is now a variable -> do NOT include it in constants.
 
-        "INJECTION_TIME": 40,  # [day]
+        "INJECTION_TIME": 130,  # [day]
         "REPORTSTEP_LENGTH": 0.5,    # [day]
         "WELL_RADIUS": 0.2,          # [m]
         "POROSITY": 0.2,
