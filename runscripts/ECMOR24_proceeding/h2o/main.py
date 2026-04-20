@@ -53,7 +53,7 @@ for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]
 ANGLE: float = math.pi / 3
 
 # Run ensemble and extract data.
-if True:
+if False:
     data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -82,7 +82,7 @@ if True:
 
 
 # Create dataset.
-if True:
+if False:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -109,15 +109,15 @@ if True:
     heights: np.ndarray = data[..., 1:, 3]
     radii = radii[1:-1]
 
-    assert (
-        pressures.shape[-1] == radii.shape[-1]
-    ), "``radii.shape`` does not equal ``pressure.shape"
-    assert (
-        pressures.shape == permeabilities.shape
-    ), "``permeabilities.shape`` does not equal ``pressure.shape"
-    assert (
-        pressures.shape == heights.shape
-    ), "``heights.shape`` does not equal ``pressure.shape"
+    assert pressures.shape[-1] == radii.shape[-1], (
+        "``radii.shape`` does not equal ``pressure.shape"
+    )
+    assert pressures.shape == permeabilities.shape, (
+        "``permeabilities.shape`` does not equal ``pressure.shape"
+    )
+    assert pressures.shape == heights.shape, (
+        "``heights.shape`` does not equal ``pressure.shape"
+    )
     assert pressures.shape == WI.shape, "``WI.shape`` does not equal ``pressure.shape"
 
     features: np.ndarray = np.stack(
@@ -141,7 +141,7 @@ if True:
         )
 
 # Tune and train model.
-if True:
+if False:
     tune_and_train(
         trainspecs,
         data_dir,
@@ -154,7 +154,7 @@ if True:
     )
 
 # Do some plotting of results and sensitivity analysis.
-if True:
+if False:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -188,8 +188,9 @@ if True:
     integration.recompile_flow(
         nn_dir / "scalings.csv",
         runspecs_integration_1["constants"]["OPM"],
-        dirname / "standardwell_impl.mako",
-        dirname / "standardwell.hpp",
+        dirname / "StandardWell_impl.mako",
+        dirname / "StandardWell.hpp",
+        ml_model_path=nn_dir / "bestmodel.keras",
     )
     for integration_dir, runspecs_integration in zip(
         [integration_dir_1, integration_dir_2, integration_dir_3],
@@ -236,3 +237,14 @@ if True:
             summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
         )
         bhp_error(summary_files, integration_dir / "bhp_diffs.csv", 0)
+
+
+# Restore default OPM StandardWell files after integration workflow finishes.
+if True:
+    integration.recompile_flow(
+        nn_dir / "scalings.csv",
+        runspecs_integration_1["constants"]["OPM"],
+        dirname / "StandardWell_impl.mako",
+        dirname / "StandardWell.hpp",
+        reset=True,
+    )
