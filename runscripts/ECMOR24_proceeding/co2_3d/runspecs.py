@@ -12,21 +12,15 @@ A. Cavanagh, H. Hansen, B. Nazarian, M. Iding, and P. Ringrose, “Reservoir Mod
 CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 
 """
-
 from __future__ import annotations
-
 import pathlib
 from typing import Any
-
 from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
-
 FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
 OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
 FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
-
-
 
 # Fixed values for all runs
 NUM_LAYERS: int = 5
@@ -37,26 +31,27 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 170
+NUM_MEMBERS: int = 250
 
-
-INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection 
-INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection 
-
+INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection ~190 t/d
+INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection ~11 200 t/d
 #INJECTION_MIN = 7.5e5 * SURFACE_DENSITY   # ~1400 t/d
 #INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (5.0, 90.0, NUM_MEMBERS), 
+    "INJ1_DAYS": (5.0, 120.0, NUM_MEMBERS), 
     "SHUT_DAYS": (7.0, 40.0, NUM_MEMBERS),
 }
-
+"""
+time_variables: dict[str, tuple[float, float, int]] = {
+    "INJ1_DAYS": (5.0, 30.0, NUM_MEMBERS), 
+    "SHUT_DAYS": (7.0, 15.0, NUM_MEMBERS),
+}"""
 variables = {
     "INJECTION_RATE": (INJECTION_MIN, INJECTION_MAX, NUM_MEMBERS),
     "SCHEDULE_SEED": (0.0, 2_147_483_647, NUM_MEMBERS),
     **time_variables,
 }
-
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
     "npruns": 5,             # number of parallel runs
@@ -67,22 +62,16 @@ runspecs_ensemble: dict[str, Any] = {
         "PERM_2": 2e-12  * units.M2_TO_MILIDARCY,
         "PERM_3": 4e-12  * units.M2_TO_MILIDARCY,
         "PERM_4": 8e-12  * units.M2_TO_MILIDARCY,
-
-        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,   # <-- comma added!
-
-        # Seabed temperature of 7°C + 35°C/km at 800–1100 m depth
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  
         "INIT_TEMPERATURE": 40,      # [°C]
         "SURFACE_DENSITY": SURFACE_DENSITY,
-
         "inj": [
         [1, 1, 1, 1, 1.0],  # INJ1
         [1, 1, 1, 1, 0.0], # SHUT
         [1, 1, 1, 1, 1.0],  # INJ2
     ],
-        # IMPORTANT:
-        # Injection rate is now a variable -> do NOT include it in constants.
-
-        "INJECTION_TIME": 130,  # [day]
+        "INJECTION_TIME": 180,  # [day]
+        "HISTORY_WINDOW_DAYS": 180,  # [day] s
         "REPORTSTEP_LENGTH": 0.5,    # [day]
         "WELL_RADIUS": 0.2,          # [m]
         "POROSITY": 0.2,
@@ -91,11 +80,9 @@ runspecs_ensemble: dict[str, Any] = {
         "NUM_XCELLS": 200,
         "LENGTH": 400,
         "HEIGHT": 25,
-
         "FLOW": FLOW,
     },
 }
-
 
 ##########
 # Training
@@ -124,15 +111,15 @@ trainspecs: dict[str, Any] = {
         "radius",
         "total_injected_volume",
         "injection_rate",
-        "time_since_last_shut_in",
-        "last_shut_in_duration",
-        #"time_days",
+        "current_injection_time",
+        "previous_shutin_time",
+        "previous_injection_time",
+        "older_history_time",
         "PI_analytical",
     ],
     "kerasify": True,
     "architecture": "fcnn", 
 }
-
 
 #############
 # Integration
@@ -140,19 +127,14 @@ trainspecs: dict[str, Any] = {
 constants_integration_1: dict[str, Any] = {
     **runspecs_ensemble["constants"],
     **{
-        "PERM_0": 7e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_1": 4e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_2": 3e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_3": 6e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_4": 2e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,  # unit: [Pa]
+        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
-        # Well radius is read from the radius of the innermost grid cell of the ensemble
-        # simulation (~0.23) times the ``pyopmnearwell_correction`` factor (~1.1) to
-        # translate from a triangle to a radial grid. Thus it differs from the ensemble well
-        # radius.
-        "WELL_RADIUS": 0.25,  # unit: [m]
+        "WELL_RADIUS": 0.25,
+
+        "INJ1_DAYS": 15.0,
+        "SHUT_DAYS": 10.0,
+        "INJECTION_RATE": 2.0e6 * SURFACE_DENSITY,
     },
 }
 # This key will be used in variables.

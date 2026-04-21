@@ -30,10 +30,8 @@ class CO2_3D_upscaler(BaseUpscaler):
     1. PRESSURE - per cell; unit [Pa]
     2. SGAS - per cell; unit [%]
     3. FLOGASI+ - per cell; unit [m^3/s] ??
-    4. PERMX - per cell; unit [m^2]
-    5. DZ - per cell; unit [m]
-    6. FGIT - global; unit [m^3]
-
+    4. FGIT - global; unit [m^3]
+    5. WGIR:INJ0  - global; well injection rate
     The feature array will have shape ``(num_ensemble_runs, num_timesteps/step_size_t,
     num_layers, num_xcells/step_size_x, num_features)``.
     The target array will have shape ``(num_ensemble_runs, num_timesteps/step_size_t,
@@ -112,7 +110,107 @@ class CO2_3D_upscaler(BaseUpscaler):
         self.runspecs: dict[str, Any] = runspecs
 
         self.angle: float = angle
+    
 
+    def get_history_features(
+        self,
+        injection_rate_feature: np.ndarray,
+        q_eps: float = 0.0,
+        history_window_days: float | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Build four compact history features from the injection-rate time series.
+
+        The returned features are, in this order:
+        1. current_injection_time [days]
+        2. previous_shutin_time [days]
+        3. previous_injection_time [days]
+        4. older_history_time [days]
+
+        ``older_history_time`` is computed from a fixed lookback window, e.g. 180 days:
+
+            older_history_time = max(
+                0, history_window_days
+                - current_injection_time
+                - previous_shutin_time
+                - previous_injection_time,
+            )
+
+        This means that before the first injection starts, the model effectively sees a
+        long shut-in history before the simulated schedule begins.
+
+        Assumes ``injection_rate_feature`` has shape ``self.single_feature_shape``:
+        ``(num_members, num_timesteps, num_layers, num_xcells)``.
+        """
+        report_dt = float(self.runspecs["constants"]["REPORTSTEP_LENGTH"])
+        if history_window_days is None:
+            history_window_days = float(
+                self.runspecs["constants"].get("HISTORY_WINDOW_DAYS", 180.0)
+            )
+
+        current_injection_time = np.zeros(self.single_feature_shape, dtype=float)
+        previous_shutin_time = np.zeros(self.single_feature_shape, dtype=float)
+        previous_injection_time = np.zeros(self.single_feature_shape, dtype=float)
+        older_history_time = np.zeros(self.single_feature_shape, dtype=float)
+
+        q_series = injection_rate_feature[:, :, 0, 0]
+        inj_active = q_series > q_eps
+
+        for m in range(self.num_members):
+            completed_previous_injection = 0.0
+            completed_previous_shutin = 0.0
+            current_injection_start_time: float | None = None
+            current_shutin_start_time: float | None = None
+
+            for t in range(self.num_timesteps):
+                abs_time = t * report_dt
+
+                if inj_active[m, t]:
+                    # Shut-in -> injection restart.
+                    if t == 0 or not inj_active[m, t - 1]:
+                        if current_shutin_start_time is not None:
+                            completed_previous_shutin = (
+                                abs_time - current_shutin_start_time
+                            )
+                            current_shutin_start_time = None
+                        current_injection_start_time = abs_time
+
+                    if current_injection_start_time is None:
+                        current_inj = 0.0
+                    else:
+                        current_inj = abs_time - current_injection_start_time
+
+                    prev_shut = completed_previous_shutin
+                    prev_inj = completed_previous_injection
+                else:
+                    # Injection -> shut-in transition.
+                    if t == 0 or inj_active[m, t - 1]:
+                        if current_injection_start_time is not None:
+                            completed_previous_injection = (
+                                abs_time - current_injection_start_time
+                            )
+                        current_injection_start_time = None
+                        current_shutin_start_time = abs_time
+
+                    current_inj = 0.0
+                    prev_shut = completed_previous_shutin
+                    prev_inj = completed_previous_injection
+
+                older_hist = max(
+                    0.0,
+                    history_window_days - current_inj - prev_shut - prev_inj,
+                )
+
+                current_injection_time[m, t, :, :] = current_inj
+                previous_shutin_time[m, t, :, :] = prev_shut
+                previous_injection_time[m, t, :, :] = prev_inj
+                older_history_time[m, t, :, :] = older_hist
+
+        return (
+            current_injection_time,
+            previous_shutin_time,
+            previous_injection_time,
+            older_history_time,
+        )
     def get_data_WI(  # pylint: disable=invalid-name
         self,
         features: np.ndarray,
@@ -123,117 +221,40 @@ class CO2_3D_upscaler(BaseUpscaler):
         dp_eps: float = 0.0,
         fill_value: float = np.nan,
     ) -> np.ndarray:
-        """Calculate data-driven WI, but only where injection is active (Q > q_eps).
-
-        This follows the same aggregation/scaling strategy as ``pyopmnearwell``:
-
-        - Pressures are averaged vertically inside each layer.
-        - BHP proxy is the well block pressure (xcell=0), averaged vertically.
-        - Reservoir pressures are xcell>=1, averaged vertically.
-        - Injection rate is summed vertically in the well block (xcell=0), scaled from
-          the cake angle to 360° and converted from per-day to per-second.
-        - WI is padded with ``fill_value`` (default NaN) whenever Q<=q_eps (shut-in) or
-          |dp|<=dp_eps.
-
-        Returns:
-            np.ndarray with shape == self.single_feature_shape
+        """
+        Same WI calculation as the old BaseUpscaler logic, but robust to Q=0 and dp=0.
         """
         if angle is None:
             angle = self.angle
 
-        # BHP (well block): average along vertical cells, pick xcell=0
         bhps: np.ndarray = np.average(features[..., pressure_index], axis=-2)[..., 0][
             ..., None
-        ]  # shape: (members, timesteps, layers, 1)
+        ]  # shape: (nmembers, nt, nlayers, 1)
 
-        # Reservoir pressures: average along vertical cells, pick xcell>=1
         pressures: np.ndarray = np.average(features[..., pressure_index], axis=-2)[
             ..., 1:
-        ]  # shape: (members, timesteps, layers, xcells)
+        ]  # shape: (nmembers, nt, nlayers, nx)
 
-        # Injection rate per second per layer (well block): sum vertical cells, xcell=0
-        injection_rate_per_second_per_layer: np.ndarray = (
+        injection_rate_per_second_per_cell: np.ndarray = (
             np.sum(features[..., inj_rate_index], axis=-2)[..., 0]
             * (math.pi * 2 / angle)
             * units.Q_per_day_to_Q_per_seconds
-        )[
-            ..., None
-        ]  # shape: (members, timesteps, layers, 1)
+        )[..., None]  # shape: (nmembers, nt, nlayers, 1)
 
-        dp: np.ndarray = bhps - pressures  # broadcasts over xcells
+        dp = bhps - pressures  # shape: (nmembers, nt, nlayers, nx)
 
-        # Start with padded output everywhere
-        WI_data: np.ndarray = np.full_like(dp, fill_value, dtype=float)
+        WI_data = np.full_like(dp, fill_value, dtype=float)
 
-        # Compute only where Q>0 (and dp not ~0)
-        q_mask = injection_rate_per_second_per_layer > q_eps  # (..., 1)
-        dp_mask = np.abs(dp) > dp_eps  # (..., xcells)
-        mask = np.broadcast_to(q_mask, dp.shape) & dp_mask
+        q_full = np.broadcast_to(injection_rate_per_second_per_cell, dp.shape)
 
-        WI_data[mask] = (injection_rate_per_second_per_layer / dp)[mask]
+        q_mask = np.abs(q_full) > q_eps
+        dp_mask = np.abs(dp) > dp_eps
+        mask = q_mask & dp_mask
+
+        WI_data[mask] = q_full[mask] / dp[mask]
 
         assert WI_data.shape == self.single_feature_shape
         return WI_data
-
-    ####ENDRET!###################
-    def get_shutin_history_features(
-        self,
-        injection_rate_feature: np.ndarray,
-        q_eps: float = 0.0,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Build two history features from the injection-rate time series:
-
-        1. time_since_last_shut_in [days]
-        2. last_shut_in_duration [days]
-
-        Assumes injection_rate_feature has shape self.single_feature_shape:
-        (num_members, num_timesteps, num_layers, num_xcells)
-
-        Since the injection rate is homogeneous in layer/x for a given member/time,
-        we infer shut-in from one representative entry per member and timestep.
-        """
-        report_dt = float(self.runspecs["constants"]["REPORTSTEP_LENGTH"])
-
-        time_since_last_shut_in = np.zeros(self.single_feature_shape, dtype=float)
-        last_shut_in_duration = np.zeros(self.single_feature_shape, dtype=float)
-
-        # Representative injection-status series per member and timestep
-        # shape: (num_members, num_timesteps)
-        q_series = injection_rate_feature[:, :, 0, 0]
-        inj_active = q_series > q_eps
-
-        for m in range(self.num_members):
-            last_shut_duration_days = 0.0
-            current_shut_duration_days = 0.0
-            restart_time_days = None
-
-            for t in range(self.num_timesteps):
-                if inj_active[m, t]:
-                    # If we just restarted after shut-in, register its duration
-                    if t > 0 and not inj_active[m, t - 1]:
-                        last_shut_duration_days = current_shut_duration_days
-                        current_shut_duration_days = 0.0
-                        restart_time_days = t * report_dt
-
-                    # During injection
-                    if restart_time_days is None:
-                        # First injection period before any shut-in
-                        tslsi = 0.0
-                    else:
-                        tslsi = t * report_dt - restart_time_days
-
-                    time_since_last_shut_in[m, t, :, :] = tslsi
-                    last_shut_in_duration[m, t, :, :] = last_shut_duration_days
-
-                else:
-                    # During shut-in
-                    current_shut_duration_days += report_dt
-                    time_since_last_shut_in[m, t, :, :] = 0.0
-                    last_shut_in_duration[m, t, :, :] = last_shut_duration_days
-
-        return time_since_last_shut_in, last_shut_in_duration
- #########ENDRET SLUTT!##########################
  
     def create_ds(
         self,
@@ -276,7 +297,6 @@ class CO2_3D_upscaler(BaseUpscaler):
         # radial values for up to (50/cos(45°))m = sqrt(2)*50m. Thus the maximum
         # possible equivalent cell size is "LENGTH" * sqrt(2).
 
-        ################# ENDRET #################333
         # for at bare de nærmeste cellene rundt brønnen skal tas med i teningsdata  
         cell_sizes = formulas.cell_size(cell_boundary_radii)
 
@@ -340,7 +360,7 @@ class CO2_3D_upscaler(BaseUpscaler):
         feature_lst.append(self.get_homogeneous_values(self.data, 3) * 6)
         assert feature_lst[-1].shape == self.single_feature_shape, \
             "Total injected volume feature has wrong shape."
-##########ENDRET!################mars
+
         # Injection rate (WGIR:INJ0) -> ligger på indeks 4
         injection_rate_feature = self.get_homogeneous_values(self.data, 4) * 6
         feature_lst.append(injection_rate_feature)
@@ -348,23 +368,27 @@ class CO2_3D_upscaler(BaseUpscaler):
             "Injection rate feature has wrong shape."
 
         # ---------------------------
-        # Shut-in history features
+        # Compact history features over a fixed lookback window
         # ---------------------------
-        time_since_last_shut_in, last_shut_in_duration = self.get_shutin_history_features(
-            injection_rate_feature
-        )
+        (
+            current_injection_time,
+            previous_shutin_time,
+            previous_injection_time,
+            older_history_time,
+        ) = self.get_history_features(injection_rate_feature)
 
-        feature_lst.append(time_since_last_shut_in)
-        assert feature_lst[-1].shape == self.single_feature_shape, \
-            "time_since_last_shut_in feature has wrong shape."
+        feature_lst.append(current_injection_time)
+        assert feature_lst[-1].shape == self.single_feature_shape,             "current_injection_time feature has wrong shape."
 
-        feature_lst.append(last_shut_in_duration)
-        assert feature_lst[-1].shape == self.single_feature_shape, \
-            "last_shut_in_duration feature has wrong shape."
-            
-    ##########ENDRET!################mars ferdis
+        feature_lst.append(previous_shutin_time)
+        assert feature_lst[-1].shape == self.single_feature_shape,             "previous_shutin_time feature has wrong shape."
 
-                    
+        feature_lst.append(previous_injection_time)
+        assert feature_lst[-1].shape == self.single_feature_shape,             "previous_injection_time feature has wrong shape."
+
+        feature_lst.append(older_history_time)
+        assert feature_lst[-1].shape == self.single_feature_shape,             "older_history_time feature has wrong shape."
+
         # ---------------------------
         # Time feature (days since start) - strengt økende
         # ---------------------------
@@ -404,10 +428,22 @@ class CO2_3D_upscaler(BaseUpscaler):
         assert feature_lst[-1].shape == self.single_feature_shape, \
             "Geometrical part of WI feature has wrong shape."
 
-        # Data-driven WI (target)
-        WI_data = self.get_data_WI(self.data, 0, 4)
+        # Data-driven WI (target) using original BaseUpscaler logic
+        WI_data = self.get_data_WI(self.data, 0, 2)
         assert WI_data.shape == self.single_feature_shape, \
             "WI target has wrong shape."
+        print("raw WI min/max:", np.nanmin(WI_data), np.nanmax(WI_data))
+        print("num raw WI < 0:", np.sum(WI_data < 0))
+        print("num raw WI > 0:", np.sum(WI_data > 0))
+
+        # Mask out WI during shut-in: keep original WI logic, but mark Q=0 as undefined
+        q_eps = 0.0
+        WI_data = np.where(np.abs(injection_rate_feature) > q_eps, WI_data, np.nan)
+
+        print("WI_data min/max:", np.nanmin(WI_data), np.nanmax(WI_data))
+        print("num negative WI:", np.sum(WI_data < 0))
+        print("num finite WI:", np.sum(np.isfinite(WI_data)))
+        print("num NaN WI:", np.sum(~np.isfinite(WI_data)))
 
         # Reduce size of data and unify shape.
         feature_shape: tuple = np.broadcast_shapes(

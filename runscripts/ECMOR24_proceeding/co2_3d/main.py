@@ -27,7 +27,7 @@ from upscale import CO2_3D_upscaler
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
 sys.path.append(str(dirname / ".."))
-from utils import (
+from utilstime import (
     bhp_error,
     full_ensemble,
     plot_member,
@@ -139,7 +139,7 @@ if True:
     print("=== STAGE: restructure_data DONE ===", flush=True)
 
 # Plot some WIs.
-"""if True:
+if False:
     features, targets = reload_data(
         runspecs_ensemble,
         trainspecs,
@@ -174,7 +174,7 @@ if True:
             radius_index=FEATURE_TO_INDEX["radius"],
             y_param="WI_log",
         )
-"""
+
 print("\n=== STAGE: tune_and_train START ===", flush=True)
 
 # Tune and train model.
@@ -191,7 +191,7 @@ if True:
     )
 print("=== STAGE: tune_and_train DONE ===", flush=True)
 # Do some plotting of results and sensitivity analysis.
-"""if True:
+if False:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     features, targets = reload_data(
         runspecs_ensemble,
@@ -241,16 +241,16 @@ print("=== STAGE: tune_and_train DONE ===", flush=True)
         feature_names=trainspecs["features"],
         legend=False,
     )
-"""
+
 # Integrate into OPM.
 if True:
-    integration.recompile_flow(
+    """integration.recompile_flow(
         nn_dir / "scalings.csv",
         runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
         dirname / "standardwell_impl_3d.mako",
         dirname / "standardwell.hpp",
         local_feature_names=["pressure", "saturation"]
-    )
+    )"""
     for integration_dir, runspecs_integration in zip(
         [
             integration_3d_dir_1,
@@ -270,7 +270,7 @@ if True:
             integration_dir,
             dirname / "integration.mako",
         )
-        """
+        
 # Plot results.
 if True:
     for savedir_3d in [
@@ -314,4 +314,4 @@ if True:
         read_and_plot_bhp(
             summary_files, labels, colors, linestyles, savedir_3d / "bhp.svg"
         )
-        bhp_error(summary_files, savedir_3d / "bhp_diffs.csv", 0)"""
+        bhp_error(summary_files, savedir_3d / "bhp_diffs.csv", 0)

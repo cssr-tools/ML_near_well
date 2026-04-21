@@ -13,7 +13,7 @@ from pyopmnearwell.utils import units
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
 # TODO: Generalize this for different stencils.
-FEATURE_TO_INDEX: dict[str, int] = {
+FEATURE_TO_INDEX = {
     "pressure_upper": 0,
     "pressure": 1,
     "pressure_lower": 2,
@@ -23,10 +23,11 @@ FEATURE_TO_INDEX: dict[str, int] = {
     "radius": 6,
     "total_injected_volume": 7,
     "injection_rate": 8,
-    "time_since_last_shut_in": 9,
-    "last_shut_in_duration": 10,
-    "time_days": 11,
-    "PI_analytical": 12,
+    "current_injection_time": 9,
+    "previous_shutin_time": 10,
+    "previous_injection_time": 11,
+    "older_history_time": 12,
+    "PI_analytical": 13,
 }
 
 
@@ -148,26 +149,28 @@ def restructure_data(
         new_features_lst.extend(upper_features + [feature] + lower_features)
 
     # ---- Add back global features using explicit indices in UPSCALER features tensor ----
-    RADIUS_IDX = 2
-    FGIT_IDX   = 3
-    WGIR_IDX   = 4
-    TSLSI_IDX  = 5   # time_since_last_shut_in
-    LSID_IDX   = 6   # last_shut_in_duration
-    TIME_IDX   = 7
-    PI_IDX     = 8
+    RADIUS_IDX        = 2
+    FGIT_IDX          = 3
+    WGIR_IDX          = 4
+    CURR_INJ_IDX      = 5
+    PREV_SHUTIN_IDX   = 6
+    PREV_INJ_IDX      = 7
+    OLDER_HIST_IDX    = 8
+    TIME_IDX          = 9
+    PI_IDX            = 10
 
-    new_features_lst.append(features[..., RADIUS_IDX])   # radius
-    new_features_lst.append(features[..., FGIT_IDX])     # total injected volume
-    new_features_lst.append(features[..., WGIR_IDX])     # injection rate
-    new_features_lst.append(features[..., TSLSI_IDX])    # time_since_last_shut_in
-    new_features_lst.append(features[..., LSID_IDX])     # last_shut_in_duration
-    new_features_lst.append(features[..., TIME_IDX])     # time_days
+    new_features_lst.append(features[..., RADIUS_IDX])       # radius
+    new_features_lst.append(features[..., FGIT_IDX])         # total_injected_volume
+    new_features_lst.append(features[..., WGIR_IDX])         # injection_rate
+    new_features_lst.append(features[..., CURR_INJ_IDX])     # current_injection_time
+    new_features_lst.append(features[..., PREV_SHUTIN_IDX])  # previous_shutin_time
+    new_features_lst.append(features[..., PREV_INJ_IDX])     # previous_injection_time
+    new_features_lst.append(features[..., OLDER_HIST_IDX])   # older_history_time
+    # new_features_lst.append(features[..., TIME_IDX])       # time_days, only if you want it
 
-    # --- PI feature ---
     PI = features[..., PI_IDX]
     eps = 1e-12
 
-    # Always append PI as a feature (log if WI_log, same convention as before)
     if trainspecs["WI_log"]:
         PI_safe = np.where(np.isfinite(PI) & (PI > 0), PI, 1.0)
         new_features_lst.append(np.log10(np.maximum(PI_safe, eps)))
@@ -353,20 +356,24 @@ def restructure_data_sequence(
     # ------------------------------------------------------------------
     # 2. Add global / engineered features
     # ------------------------------------------------------------------
-    RADIUS_IDX = 2
-    FGIT_IDX   = 3
-    WGIR_IDX   = 4
-    TSLSI_IDX  = 5
-    LSID_IDX   = 6
-    TIME_IDX   = 7
-    PI_IDX     = 8
+    RADIUS_IDX        = 2
+    FGIT_IDX          = 3
+    WGIR_IDX          = 4
+    CURR_INJ_IDX      = 5
+    PREV_SHUTIN_IDX   = 6
+    PREV_INJ_IDX      = 7
+    OLDER_HIST_IDX    = 8
+    TIME_IDX          = 9
+    PI_IDX            = 10
 
-    new_features_lst.append(features[..., RADIUS_IDX])   # radius
-    new_features_lst.append(features[..., FGIT_IDX])     # total injected volume
-    new_features_lst.append(features[..., WGIR_IDX])     # injection_rate
-    new_features_lst.append(features[..., TSLSI_IDX])    # time_since_last_shut_in
-    new_features_lst.append(features[..., LSID_IDX])     # last_shut_in_duration
-    new_features_lst.append(features[..., TIME_IDX])     # time_days
+    new_features_lst.append(features[..., RADIUS_IDX])       # radius
+    new_features_lst.append(features[..., FGIT_IDX])         # total_injected_volume
+    new_features_lst.append(features[..., WGIR_IDX])         # injection_rate
+    new_features_lst.append(features[..., CURR_INJ_IDX])     # current_injection_time
+    new_features_lst.append(features[..., PREV_SHUTIN_IDX])  # previous_shutin_time
+    new_features_lst.append(features[..., PREV_INJ_IDX])     # previous_injection_time
+    new_features_lst.append(features[..., OLDER_HIST_IDX])   # older_history_time
+    # new_features_lst.append(features[..., TIME_IDX])       # time_days, only if used
 
     PI = features[..., PI_IDX]
     eps = 1e-12

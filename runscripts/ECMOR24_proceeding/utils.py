@@ -18,7 +18,10 @@ import numpy as np
 import tensorflow as tf
 from ecl.summary.ecl_sum import EclSum
 from matplotlib import pyplot as plt
-from pyopmnearwell.ml import ensemble, nn
+from pyopmnearwell.ml import ensemble
+from pyopmnearwell.ml import nn as nn_GRU
+
+
 from pyopmnearwell.utils import plotting, units
 from tensorflow import keras
 
@@ -169,7 +172,7 @@ def tune_and_train(
         data_dirname (str | pathlib.Path): _description_
         nn_dirname (str | pathlib.Path): Path to store the tuning results, the trained
             networks and logs.
-        **kwargs: Gets (among others) passed to ``nn.train`` and ``nn.tune``. Possible
+        **kwargs: Gets (among others) passed to ``nn_GRU.train`` and ``nn_GRU.tune``. Possible
             parameters are:
             - train_split (float)
             - val_split (float)
@@ -187,7 +190,7 @@ def tune_and_train(
 
     """
     # Create datasets and check that they are not empty.
-    train_data, val_data, test_data = nn.scale_and_prepare_dataset(  # type: ignore
+    train_data, val_data, test_data = nn_GRU.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
         feature_names=trainspecs["features"],
         savepath=nn_dirname,
@@ -197,7 +200,7 @@ def tune_and_train(
         test_split=kwargs.get("test_split", 0.1),
         # Shuffle last s.t. training, val, and test split come from different ensemble
         # runs.
-        shuffle="last",
+        shuffle="first",
     )
     # TODO: The assert fails for empty splits.
     train_features, train_targets = train_data
@@ -210,8 +213,22 @@ def tune_and_train(
     assert not np.any(np.isnan(test_features))
     assert not np.any(np.isnan(test_targets))
 
+    # Save scaled datasets for external evaluation after training.
+    nn_output = pathlib.Path(nn_dirname)
+    nn_output.mkdir(parents=True, exist_ok=True)
+    np.savez(nn_output / "trainset_scaled.npz", X=train_features, y=train_targets)
+    np.savez(nn_output / "valset_scaled.npz", X=val_features, y=val_targets)
+    np.savez(nn_output / "testset_scaled.npz", X=test_features, y=test_targets)
+    print(f"Saved scaled datasets to {nn_output}")
+    val_features, val_targets = val_data
+    assert not np.any(np.isnan(val_features))
+    assert not np.any(np.isnan(val_targets))
+    test_features, test_targets = test_data
+    assert not np.any(np.isnan(test_features))
+    assert not np.any(np.isnan(test_targets))
+
     # # Adapt the layers when using z-normalization.
-    # TODO: Implement this in ```nn.tune`` somehow.
+    # TODO: Implement this in ```nn_GRU.tune`` somehow.
     # if trainspecs["Z-normalization"]:
     #     model.layers[0].adapt(train_data[0])
     #     model.layers[-1].adapt(train_data[1])
@@ -226,22 +243,27 @@ def tune_and_train(
 
     # Tune hyperparameters and get best model.
     # TODO: Change to two different kwargs lists.
-    tune_args = list(inspect.signature(nn.tune).parameters)
+    tune_args = list(inspect.signature(nn_GRU.tune).parameters)
     tune_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in tune_args}
-    model, tuner = nn.tune(
+    tune_args = list(inspect.signature(nn_GRU.tune).parameters)
+    tune_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in tune_args}
+
+    noutputs = train_targets.shape[-1]
+
+    model, tuner = nn_GRU.tune(
         len(trainspecs["features"]),
-        kwargs.get("noutputs", 1),
-        train_data,  #
+        noutputs,
+        train_data,
         val_data,
         nn_dirname,
         sample_weight=sample_weight,
         **tune_dict,
     )
-    nn.save_tune_results(tuner, nn_dirname)
+    nn_GRU.save_tune_results(tuner, nn_dirname)
 
-    train_args = list(inspect.signature(nn.train).parameters)
+    train_args = list(inspect.signature(nn_GRU.train).parameters)
     train_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in train_args}
-    nn.train(
+    nn_GRU.train(
         model,
         train_data,
         val_data,
@@ -277,7 +299,7 @@ def just_train(
             - lr (float): Default is 1e-4.
 
     """
-    train_data, val_data, test_data = nn.scale_and_prepare_dataset(  # type: ignore
+    train_data, val_data, test_data = nn_GRU.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
         feature_names=trainspecs["features"],
         savepath=nn_dirname,
@@ -287,7 +309,7 @@ def just_train(
         test_split=kwargs.get("test_split", 0.1),
         # Shuffle last s.t. training, val, and test split come from different ensemble
         # runs.
-        shuffle="last",
+        shuffle="first",
     )
 
     train_features, train_targets = train_data
@@ -301,7 +323,7 @@ def just_train(
     assert not np.any(np.isnan(test_targets))
 
     # # Adapt the layers when using z-normalization.
-    # TODO: Implement this in ```nn.tune`` somehow.
+    # TODO: Implement this in ```nn_GRU.tune`` somehow.
     # if trainspecs["Z-normalization"]:
     #     model.layers[0].adapt(train_data[0])
     #     model.layers[-1].adapt(train_data[1])
@@ -311,7 +333,7 @@ def just_train(
         sample_weight: np.ndarray = 1 / (np.abs(train_targets) + np.finfo(float).eps)
     else:
         sample_weight = np.ones_like(train_targets)
-    nn.train(
+    nn_GRU.train(
         model,
         train_data,
         val_data,
@@ -333,57 +355,60 @@ def reload_data(
     num_xvalues: Optional[int] = None,
     num_zvalues: Optional[int] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load a dataset and return in shape s.t. member/time/z-axis/x-axis are distinct
-    axes.
+    """Load a dataset.
 
-    _extended_summary_
+    If the dataset is dense, reshape back to
+    (nmembers, nt, nlayers, nx, nfeat) and (nmembers, nt, nlayers, nx, 1).
 
-    Args:
-        runspecs (dict[str, Any]): _description_
-        trainspecs (dict[str, Any]): _description_
-        data_dirname (str | pathlib.Path): _description_
-        step_size_x (int, optional): _description_. Defaults to 1.
-        step_size_t (int, optional): _description_. Defaults to 1.
-        num_xvalues (Optional[int], optional): _description_. Defaults to None.
-        num_zvalues (Optional[int], optional): _description_. Defaults to None.
-
-    Returns:
-        tuple[np.ndarray, np.ndarray]: _description_
-
+    If the dataset is filtered/flat (for example because invalid WI or Q=0 rows were
+    removed), keep it flat and return as loaded.
     """
-    # Get feature shape. Along the corresponding dimensions ``num_timesteps`` and
-    # ``num_xcells`` were reduced, by feature[:, ::step_size_t, ::, ::step_size_x]. We
-    # calculate the adjusted dimensions with ``math.ceil``.
-    # TODO: Is first using math.floor, then math.ceil correct?
-    # TODO: Run an OPM Flow simulation with missmatching reportstep length and injection
-    # time to find out.
     num_timesteps: int = math.ceil(
         math.floor(
-            (
-                runspecs["constants"]["INJECTION_TIME"]
-                / runspecs["constants"]["REPORTSTEP_LENGTH"]
-            )
+            runspecs["constants"]["INJECTION_TIME"]
+            / runspecs["constants"]["REPORTSTEP_LENGTH"]
         )
         / step_size_t
     )
     num_layers: int = runspecs["constants"]["NUM_LAYERS"]
     num_features: int = len(trainspecs["features"])
 
-    # Calc. ``num_xvalues`` and ``num_zvalues`` if not provided.
     if num_xvalues is None:
-        # Innermost and outermost cell get disregarded and for some reason the grid has
-        # one cell less than specified -> substract 3.
         num_xvalues = math.ceil((runspecs["constants"]["NUM_XCELLS"] - 3) / step_size_x)
     if num_zvalues is None:
         num_zvalues = runspecs["constants"]["NUM_ZCELLS"]
 
-    # Load flattened data and reshape.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
-    features = features.reshape(
-        -1, num_timesteps, num_layers, num_xvalues, num_features
+
+    expected_rows = num_timesteps * num_layers * num_xvalues
+
+    print("reload_data raw shapes:", features.shape, targets.shape)
+    print(
+        f"reload_data expected dense rows per member: "
+        f"{num_timesteps} * {num_layers} * {num_xvalues} = {expected_rows}"
     )
-    targets = targets.reshape(-1, num_timesteps, num_layers, num_xvalues, 1)
+
+    # Dense dataset: reshape back to grid form
+    if features.shape[0] % expected_rows == 0:
+        num_members = features.shape[0] // expected_rows
+
+        features = features.reshape(
+            num_members, num_timesteps, num_layers, num_xvalues, num_features
+        )
+        targets = targets.reshape(
+            num_members, num_timesteps, num_layers, num_xvalues, 1
+        )
+
+        print("reload_data reshaped shapes:", features.shape, targets.shape)
+    else:
+        # Filtered dataset: keep flat
+        print(
+            "reload_data: filtered flat dataset detected, skipping reshape. "
+            f"Loaded rows={features.shape[0]}, cannot fit dense shape with "
+            f"expected_rows={expected_rows}."
+        )
+
     return features, targets
 
 
@@ -533,7 +558,7 @@ def plot_member(
         else:
             raise ValueError(f"{trainspecs['architecture']} is not supported.")  # type: ignore
 
-        model_output: np.ndarray = nn.scale_and_evaluate(
+        model_output: np.ndarray = nn_GRU.scale_and_evaluate(
             model,
             model_output,
             nn_dirname / "scalings.csv",  # type: ignore
