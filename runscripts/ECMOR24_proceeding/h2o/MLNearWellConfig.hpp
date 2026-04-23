@@ -22,7 +22,10 @@
 #ifndef MLNearWell_CONFIG_HPP
 #define MLNearWell_CONFIG_HPP
 
+#include <opm/simulators/flow/HybridNewtonConfig.hpp>
+
 #include <cmath>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -31,99 +34,17 @@ namespace Opm {
 class PropertyTree;
 
 /*!
- * \brief Represents scaling information for a feature.
- *
- * Supports standard (mean/std) and min-max scaling.
- */
-struct Scaler
-{
-    enum class Type { None, Standard, MinMax } type = Type::None;
-    double mean = 0.0;
-    double std  = 1.0;
-    double min  = 0.0;
-    double max  = 1.0;
-
-    double scale(double raw_value) const
-    {
-        switch (type) {
-            case Type::Standard:
-                return (std == 0.0) ? mean : (raw_value - mean) / std;
-            case Type::MinMax: {
-                double denom = max - min;
-                return (denom == 0.0) ? min : (raw_value - min) / denom;
-            }
-            case Type::None:
-            default:
-                return raw_value;
-        }
-    }
-
-    double unscale(double scaled_value) const
-    {
-        switch (type) {
-            case Type::Standard: return scaled_value * std + mean;
-            case Type::MinMax:   return scaled_value * (max - min) + min;
-            case Type::None:
-            default:             return scaled_value;
-        }
-    }
-};
-
-/*!
- * \brief Represents a transformation applied to a feature.
- *
- * Supports log, log10, log1p, and no transform. Provides forward
- * and inverse methods.
- */
-struct Transform
-{
-    enum class Type { None, Log, Log10, Log1p } type = Type::None;
-
-    Transform() = default;
-    explicit Transform(const std::string& name)
-    {
-        if      (name == "log10") type = Type::Log10;
-        else if (name == "log")   type = Type::Log;
-        else if (name == "log1p") type = Type::Log1p;
-        else                       type = Type::None;
-    }
-
-    double apply(double raw_value) const
-    {
-        switch (type) {
-            case Type::Log10: return std::log10(raw_value);
-            case Type::Log:   return std::log(raw_value);
-            case Type::Log1p: return std::log1p(raw_value);
-            case Type::None:
-            default:          return raw_value;
-        }
-    }
-
-    double applyInverse(double transformed_value) const
-    {
-        switch (type) {
-            case Type::Log10: return std::pow(10.0, transformed_value);
-            case Type::Log:   return std::exp(transformed_value);
-            case Type::Log1p: return std::expm1(transformed_value);
-            case Type::None:
-            default:          return transformed_value;
-        }
-    }
-};
-
-/*!
- * \brief Metadata for a single feature (input or output).
+ * \brief Metadata for a single MLNearWell feature (input or output).
  *
  * Includes transformation, scaling, delta flag, and actual feature name.
  */
-struct FeatureSpec
+struct FeatureSpecMLNearWell
 {
     Transform transform;
     Scaler scaler;
-    bool is_delta = false;
     std::string actual_name;
 
-    FeatureSpec() = default;
+    FeatureSpecMLNearWell() = default;
 };
 
 /*!
@@ -136,12 +57,9 @@ class MLNearWellConfig
 {
 public:
     std::string model_path;
-    std::string cell_indices_file;
-    std::vector<int> cell_indices;
-    std::size_t n_cells = 0;
-    std::vector<double> apply_times;
-    std::vector<std::pair<std::string, FeatureSpec>> input_features;
-    std::vector<std::pair<std::string, FeatureSpec>> output_features;
+    bool debug;
+    std::vector<std::pair<std::string, FeatureSpecMLNearWell>> input_features;
+    std::vector<std::pair<std::string, FeatureSpecMLNearWell>> output_features;
 
     // Default constructor
     MLNearWellConfig() = default;
@@ -158,23 +76,31 @@ public:
 
     bool hasOutputFeature(const std::string& name) const;
 
+    const FeatureSpecMLNearWell& requireInputFeature(const std::string& name) const;
+
+    const FeatureSpecMLNearWell& requireOutputFeature(const std::string& name) const;
+
+    template<class Value>
+    Value transformAndScaleInput(const std::string& name, const Value& raw_value) const
+    {
+        const auto& spec = requireInputFeature(name);
+        return spec.scaler.scale(spec.transform.apply(raw_value));
+    }
+
+    template<class Value>
+    Value unscaleAndInverseOutput(const std::string& name, const Value& model_value) const
+    {
+        const auto& spec = requireOutputFeature(name);
+        return spec.transform.applyInverse(spec.scaler.unscale(model_value));
+    }
+
     /*!
     * \brief Validate feature compatibility with simulator settings.
     *
-    * Ensures RS/RV features are only used if composition support is enabled.
-    * Throws std::runtime_error otherwise.
     */
-    void validateConfig(bool compositionSwitchEnabled) const;
+    void validateConfig() const;
 
 private:
-    /*!
-    * \brief Load cell indices from a plain text file.
-    *
-    * Each line must contain one integer index. Lines starting with '#' or
-    * empty lines are ignored. Throws if the file is missing, invalid, or empty.
-    */
-    std::vector<int> loadCellIndicesFromFile(const std::string& filename) const;
-
     /*!
     * \brief Parse feature specifications from a PropertyTree.
     *
@@ -186,7 +112,11 @@ private:
     * \param features Destination vector of (name, FeatureSpec) pairs.
     */
     void parseFeatures(const PropertyTree& pt, const std::string& path,
-                       std::vector<std::pair<std::string, FeatureSpec>>& features);
+                       std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features);
+
+    const FeatureSpecMLNearWell& requireFeature(const std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features,
+                                      const std::string& name,
+                                      const char* feature_kind) const;
 };
 
 } // namespace Opm

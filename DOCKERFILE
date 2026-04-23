@@ -7,7 +7,7 @@ LABEL email="peter.schultzendorff@uib.no"
 
 # Suppress interactive dialogue during package installation.
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPM_REF=release/2025.04
+ARG OPM_REF=release/2025.10
 ARG OPM_BUILD_JOBS=2
 
 # Switch to root user to install packages.

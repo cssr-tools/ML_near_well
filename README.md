@@ -11,14 +11,16 @@ fine-scale ensemble simulations of the near-well region under differing flow reg
 This novel approach allows for flexible and accurate modeling of transient and
 multiphase effects.
 
-The accompanying paper is [*A machine-learned near-well model in OPM Flow, von Schultzendorff et al. (2024)*](https://www.earthdoc.org/content/papers/10.3997/2214-4609.202437033). 
-
 The ensemble simulations as well as tests of the final model are run in the open-source
 reservoir simulator OPM Flow. In addition, our code uses the
 [pyopmnearwell](https://github.com/cssr-tools/pyopmnearwell) package to run near-well
-ensemble simulations, extract data sets, and train models.
+ensemble simulations, extract data sets, and train models. The implementation of the ML
+near-well model in OPM Flow closely follows the approach for the
+[Hybrid Newton method](https://github.com/cssr-tools/hyopml/tree/main). The files
+``MLNearWellConfig.hpp`` and ``MLNearWellConfig.cpp`` are modified versions of the
+corresponding hybrid Newton equivalents.
 
-**Note:** All scripts were run with ``OPM Flow 2025.04``,
+**Note:** All scripts were run with ``OPM Flow 2025.10``,
 ``python 3.10.12``,  and the python packages specified in ``requirements_full.txt``.
 
 # Installation

@@ -64,14 +64,14 @@ runspecs_integration_1: dict[str, Any] = {
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
         "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
-        "ML_MODEL_PATH": [
-            "",
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
-            "",
-            "",
-            "",
+        "MLNEARWELLCONFIGFILE": [
+            str(dirname / "nn" / "peaceman_config.json"),
+            str(dirname / "nn" / "ml_config.json"),
+            str(dirname / "nn" / "ml_config.json"),
+            str(dirname / "nn" / "ml_config.json"),
+            str(dirname / "nn" / "peaceman_config.json"),
+            str(dirname / "nn" / "peaceman_config.json"),
+            str(dirname / "nn" / "peaceman_config.json"),
         ],
         "RUN_NAME": [
             "5x5m_Peaceman",

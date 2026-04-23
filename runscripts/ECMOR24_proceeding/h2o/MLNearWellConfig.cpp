@@ -38,33 +38,12 @@ MLNearWellConfig::MLNearWellConfig(const PropertyTree& model_config)
     if (model_path.empty()) {
         throw std::runtime_error("Missing 'model_path' in MLNearWell config");
     }
-
-    cell_indices_file = model_config.get<std::string>("cell_indices_file", "");
-    if (cell_indices_file.empty()) {
-        throw std::runtime_error("Missing 'cell_indices_file' in MLNearWell config");
-    }
-
-    // Load cell indices immediately
-    cell_indices = loadCellIndicesFromFile(cell_indices_file);
-    n_cells = cell_indices.size();
-
-    // Load apply times
-    auto applyTimesOpt = model_config.get_child_optional("apply_times");
-    if (!applyTimesOpt) {
-        throw std::runtime_error("Missing 'apply_times' in HybridNewton config");
-    }
-
-    for (const auto& key : applyTimesOpt->get_child_keys()) {
-        apply_times.push_back(applyTimesOpt->get_child(key).get<double>(""));
-    }
-
-    if (apply_times.empty()) {
-        throw std::runtime_error("'apply_times' must contain at least one value");
-    }
+    debug = model_config.get<bool>("debug", false);
 
     // Parse features
     parseFeatures(model_config, "features.inputs", input_features);
     parseFeatures(model_config, "features.outputs", output_features);
+
 }
 
 bool MLNearWellConfig::hasInputFeature(const std::string& name) const
@@ -79,62 +58,29 @@ bool MLNearWellConfig::hasOutputFeature(const std::string& name) const
                                [&name](const auto& p) { return p.first == name; });
 }
 
-void MLNearWellConfig::validateConfig(bool compositionSwitchEnabled) const
+const FeatureSpecMLNearWell& MLNearWellConfig::requireInputFeature(const std::string& name) const
 {
-    bool hasRsFeature = hasInputFeature("RS") ||
-                        hasOutputFeature("RS") ||
-                        hasOutputFeature("DELTA_RS");
-
-    bool hasRvFeature = hasInputFeature("RV") ||
-                        hasOutputFeature("RV") ||
-                        hasOutputFeature("DELTA_RV");
-
-    if ((hasRsFeature || hasRvFeature) && !compositionSwitchEnabled) {
-        OPM_THROW(std::runtime_error,
-            "HybridNewton: RS or RV features detected but composition support is disabled. "
-            "CompositionSwitch must be enabled for RS/RV features."
-        );
-    }
+    return requireFeature(input_features, name, "input");
 }
 
-std::vector<int>
-MLNearWellConfig::loadCellIndicesFromFile(const std::string& filename) const
+const FeatureSpecMLNearWell& MLNearWellConfig::requireOutputFeature(const std::string& name) const
 {
-    std::vector<int> indices;
-    std::ifstream cellFile(filename);
-    if (! cellFile) {
-        throw std::runtime_error("Cannot open cell indices file: " + filename);
-    }
-
-    std::string line;
-    int lineNumber = 0;
-    while (std::getline(cellFile, line)) {
-        ++lineNumber;
-        if (line.empty() || line[0] == '#') continue;
-        try { indices.push_back(std::stoi(line)); }
-        catch (...) {
-            throw std::runtime_error("Invalid cell index at line " + std::to_string(lineNumber) +
-                                     " in file " + filename + ": " + line);
-        }
-    }
-
-    if (indices.empty()) {
-        throw std::runtime_error("No valid cell indices found in file: " + filename);
-    }
-
-    return indices;
+    return requireFeature(output_features, name, "output");
 }
+
+// No specific validation rules implemented yet, but this is where they would go.
+void MLNearWellConfig::validateConfig() const {}
 
 void MLNearWellConfig::
 parseFeatures(const PropertyTree& pt, const std::string& path,
-              std::vector<std::pair<std::string, FeatureSpec>>& features)
+              std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features)
 {
     auto subtreeOpt = pt.get_child_optional(path);
     if (!subtreeOpt) return;
 
     for (const auto& name : subtreeOpt->get_child_keys()) {
         const PropertyTree& ft = subtreeOpt->get_child(name);
-        FeatureSpec spec;
+        FeatureSpecMLNearWell spec;
         spec.transform = Transform(ft.get<std::string>("feature_engineering", "none"));
 
         if (auto sOpt = ft.get_child_optional("scaling_params")) {
@@ -157,11 +103,25 @@ parseFeatures(const PropertyTree& pt, const std::string& path,
             spec.scaler.type = Scaler::Type::None;
         }
 
-        spec.is_delta = name.compare(0, 6, "DELTA_") == 0;
-        spec.actual_name = spec.is_delta ? name.substr(6) : name;
+        spec.actual_name = name;
 
         features.emplace_back(name, std::move(spec));
     }
+}
+
+const FeatureSpecMLNearWell& MLNearWellConfig::requireFeature(
+    const std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features,
+    const std::string& name,
+    const char* feature_kind) const
+{
+    const auto it = std::ranges::find_if(features,
+                                         [&name](const auto& p) { return p.first == name; });
+    if (it == features.end()) {
+        throw std::runtime_error("Missing required " + std::string(feature_kind) +
+                                 " feature in MLNearWell config: '" + name + "'");
+    }
+
+    return it->second;
 }
 
 } // namespace Opm

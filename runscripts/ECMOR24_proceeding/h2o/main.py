@@ -12,8 +12,6 @@ from pyopmnearwell.utils import units
 from runspecs import (
     runspecs_ensemble,
     runspecs_integration_1,
-    runspecs_integration_2,
-    runspecs_integration_3,
     trainspecs,
 )
 from tensorflow import keras
@@ -186,19 +184,16 @@ if False:
 # Integrate into OPM.
 if True:
     integration.recompile_flow(
-        nn_dir / "scalings.csv",
         runspecs_integration_1["constants"]["OPM"],
-        dirname / "StandardWell_impl.mako",
-        dirname / "StandardWell.hpp",
-        ml_model_path=nn_dir / "bestmodel.keras",
+        dirname,
     )
+    # for integration_dir, runspecs_integration in zip(
+    #     [integration_dir_1, integration_dir_2, integration_dir_3],
+    #     [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
+    # ):
     for integration_dir, runspecs_integration in zip(
-        [integration_dir_1, integration_dir_2, integration_dir_3],
-        [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
+        [integration_dir_1], [runspecs_integration_1]
     ):
-        # for integration_dir, runspecs_integration in zip(
-        #     [integration_dir_1], [runspecs_integration_1]
-        # ):
         integration.run_integration(
             runspecs_integration,
             integration_dir,
