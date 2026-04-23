@@ -298,11 +298,11 @@ namespace Opm
                 }
                 auto injectorType = this->well_ecl_.injectorType();
                 if (injectorType == InjectorType::WATER) {
-                    const unsigned waterCompIdx = FluidSystem::canonicalToActiveComponentIndex(FluidSystem::waterCompIdx);
+                    const unsigned waterCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::waterCompIdx);
                     cq_s[waterCompIdx] = - WI *  drawdown;
                 }
                 else if (injectorType == InjectorType::GAS) {
-                    const unsigned gasCompIdx = FluidSystem::canonicalToActiveComponentIndex(FluidSystem::gasCompIdx);
+                    const unsigned gasCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::gasCompIdx);
                     cq_s[gasCompIdx] = - WI *  drawdown;
                 }
             } 
@@ -2711,7 +2711,7 @@ namespace Opm
         model.loadModel(config_.model_path);
 
         // Construct input & output tensors.
-        const ML::Tensor<Value> input{config_.input_features.size()};
+        ML::Tensor<Value> input{config_.input_features.size()};
         ML::Tensor<Value> output;
 
         // Collect & scale input features. NOTE: order need to be the same as under
@@ -2727,7 +2727,7 @@ namespace Opm
         // equivalent well radius - unit [m]
         const auto re = config_.template transformAndScaleInput<Value>("RADIUS", Value(connection.r0()));
 
-        input.data_ = {{p, k, h, re}};
+        input.data_ = {p, k, h, re};
 
 
         // Run the model.
