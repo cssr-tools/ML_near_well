@@ -2716,6 +2716,7 @@ namespace Opm
 
         // Collect & scale input features. NOTE: order need to be the same as under
         // training.
+
         const auto& connection = Base::well_ecl_.getConnections()[perf];
         // well block pressure - unit [Pa]
         const auto p = config_.template transformAndScaleInput<Value>("PRESSURE", pressure);
@@ -2728,7 +2729,6 @@ namespace Opm
         const auto re = config_.template transformAndScaleInput<Value>("RADIUS", Value(connection.r0()));
 
         input.data_ = {p, k, h, re};
-
 
         // Run the model.
         model.apply(input, output);

@@ -2760,168 +2760,242 @@ namespace Opm
             // permeability - has unit [m^2] both inside OPM and as the input for the
             // neural network
             const auto& connection = Base::well_ecl_.getConnections()[perf];
-            const auto k = config_.template transformAndScaleInput<Value>("PERMEABILITY", Value(connection.Kh() / connection.connectionLength()));
+            const auto k = config_.template transformAndScaleInput<Value>(
+                "PERMEABILITY",
+                 Value(connection.Kh() / connection.connectionLength())
+            );
             // cell height - unit [m]
-            const auto h = config_.template transformAndScaleInput<Value>("HEIGHT", Value(connection.connectionLength()));
+            const auto h = config_.template transformAndScaleInput<Value>(
+                "HEIGHT",
+                 Value(connection.connectionLength())
+            );
             // equivalent well radius - unit [m]
-            const auto re = config_.template transformAndScaleInput<Value>("RADIUS", Value(connection.r0()));
+            const auto re = config_.template transformAndScaleInput<Value>(
+                "RADIUS",
+                 Value(connection.r0())
+            );
+
             input.data_ = {p, k, h, re};
         }
-        else if (config_.model_type == "co2_2d_in_2D") {
-                // well block pressure - unit [Pa]
-                const auto p = config_.template transformAndScaleInput<Value>("PRESSURE", pressure);
+        else if (config_.model_type == "co2_2D") {
                 // geometrical part of WI
-                const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>("ANALYTICAL_PI", analytical_PI);
+                const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
+                    "ANALYTICAL_PI",
+                     analytical_PI
+                );
                 // total injected gas - unit [m^3]
                 const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
-                const auto tot_inj_gas = Value(scaleFunction(ebosSimulator.time() * injection_rate_per_second,
-                                                    xmin[2],
-                                                    xmax[2],
-                                                    feature_min,
-                                                    feature_max
-                                                    ));
+                const auto tot_inj_gas = config_.template transformAndScaleInput<Value>(
+                    "TOT_INJ_GAS",
+                    simulator.time() * injection_rate_per_second
+                );
 
-                input.data_ = {{p, analytical_PI_scaled, tot_inj_gas}};
-        }
-        else if (config_.model_type == "co2_2d_in_3D") {
-                // geometrical part of WI
-                const auto analytical_PI_scaled = Value(scaleFunction(analytical_PI, xmin[1], xmax[1], feature_min, feature_max));
-                // total injected gas - unit [m^3]
-                const auto injection_rate_per_second { 1000000  / 86000 };
-                const auto tot_inj_gas = Value(scaleFunction(ebosSimulator.time() * injection_rate_per_second,
-                                                    xmin[2],
-                                                    xmax[2],
-                                                    feature_min,
-                                                    feature_max
-                                                    ));
-
-                in.data_ = {{p, analytical_PI_scaled, tot_inj_gas}};
-
-                Tensor<Value> out;
-                model.Apply(&in, &out);
+                input.data_ = {p, analytical_PI_scaled, tot_inj_gas};
         }
         else if (config_.model_type == "co2_3d") {
-                // Get values for local features
-                std::array<std::array<Value, config_.stencil_size>, num_cell_features> features;
+            std::string cell_feature_names[${len(cell_feature_names)}];
+            const int stencil_size{ ${stencil_size} };
+            const int num_cell_features{ ${len(cell_feature_names)} };
 
-                for (int i = 0; i < config_.stencil_size; ++i) {
-                    // Perforation index
-                    int perf_i = perf - 1 + i;
+            % for cell_feature_name in cell_feature_names:
+            cell_feature_names[${loop.index}] = "${cell_feature_name}";
+            % endfor
 
-                    // Upper boundary: Set padding
-                    if (perf_i < 0 ) {
-                        for (int j = 0; j < num_cell_features; ++j) {
-                            std::string feature_name = cell_feature_names[j];
-                            // Neighbor padding for pressure
-                            if (feature_name == "pressure") {
-                                const int cell_idx = this->well_cells_[perf_i + 1];
-                                const auto& intQuants = ebosSimulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
-                                auto fs = intQuants.fluidState();
-                                features[i][j] = obtain(this->getPerfCellPressure(fs));
-                                }
-                            // Zero padding for other values
-                            else {
-                                features[i][j] = Value(0.0);
-                                }
+            // Radius, total injected gas and analytical PI are the global features
+            const int num_global_features { 3 };
+            const auto r_e = Base::well_ecl_.getConnections()[0].r0();
+            const auto injection_rate_per_second { config_.injection_rate_per_day / 86000 };
+
+            // Get values for local features.
+            std::array<std::array<Value, config_.stencil_size>, num_cell_features> features;
+
+            for (int i = 0; i < config_.stencil_size; ++i) {
+                // Perforation index
+                int perf_i = perf - 1 + i;
+
+                // Upper boundary: Set padding
+                if (perf_i < 0 ) {
+                    for (int j = 0; j < num_cell_features; ++j) {
+                        std::string feature_name = cell_feature_names[j];
+                        // Neighbor padding for pressure
+                        if (feature_name == "pressure") {
+                            const int cell_idx = this->well_cells_[perf_i + 1];
+                            const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
+                            auto fs = intQuants.fluidState();
+                            features[i][j] = obtain(this->getPerfCellPressure(fs));
+                            }
+                        // Zero padding for other values
+                        else {
+                            features[i][j] = Value(0.0);
                             }
                         }
-                    // Lower boundary: Set padding
-                    else if (perf_i >= this->number_of_perforations_) {
-                        for (int j = 0; j < num_cell_features; ++j) {
-                            std::string feature_name = cell_feature_names[j];
-                            // Neighbor padding for pressure
-                            if (feature_name == "pressure") {
-                                const int cell_idx = this->well_cells_[perf_i - 1];
-                                const auto& intQuants = ebosSimulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
-                                auto fs = intQuants.fluidState();
-                                features[i][j] = obtain(this->getPerfCellPressure(fs));
-                                }
-                            // Zero padding for other values
-                            else {
-                                features[i][j] = Value(0.0);
-                                }
+                    }
+                // Lower boundary: Set padding
+                else if (perf_i >= this->number_of_perforations_) {
+                    for (int j = 0; j < num_cell_features; ++j) {
+                        std::string feature_name = cell_feature_names[j];
+                        // Neighbor padding for pressure
+                        if (feature_name == "pressure") {
+                            const int cell_idx = this->well_cells_[perf_i - 1];
+                            const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
+                            auto fs = intQuants.fluidState();
+                            features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
-                        }
-
-                    // Inside the domain
-                    else {
-                        const int cell_idx = this->well_cells_[perf_i];
-                        const auto& intQuants = ebosSimulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
-
-                        auto fs = intQuants.fluidState();
-
-                        for (int j = 0; j < num_cell_features; ++j) {
-                            std::string feature_name = cell_feature_names[j];
-                            if (feature_name == "pressure") {
-                                features[i][j] = obtain(this->getPerfCellPressure(fs));
-                                }
-                            // TODO: Are saturation and permeability Values or will this create
-                            // a bug?
-                            else if (feature_name == "saturation") {
-                                features[i][j] = obtain(fs.saturation(FluidSystem::gasPhaseIdx));
-                                }
-                            else if (feature_name == "permeability") {
-                                const auto& connection =
-                                Base::well_ecl_.getConnections()[perf_i];
-                                // Network input is in m^2
-                                features[i][j] = Value(connection.Kh() / connection.connectionLength());
-                                }
-                            std::cout << feature_name << " cell_" << i << ": " << features[i][j] << std::endl;
+                        // Zero padding for other values
+                        else {
+                            features[i][j] = Value(0.0);
                             }
                         }
                     }
 
-                // Give number of input parameters
-                Tensor<Value> in{stencil_size * num_cell_features + num_global_features};
+                // Inside the domain
+                else {
+                    const int cell_idx = this->well_cells_[perf_i];
+                    const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
+                    auto fs = intQuants.fluidState();
 
-                // Scale local features and order them as input tensor
-                // Note: order needs to be the same as during training
-                for (int j = 0; j < num_cell_features; ++j) {
-                    for (int i = 0; i < stencil_size; ++i) {
-                        features[i][j] = scaleFunction(features[i][j],
-                                                    xmin[j * stencil_size + i],
-                                                    xmax[j * stencil_size + i],
-                                                    feature_min,
-                                                    feature_max
-                                                    );
-                        in.data_[j * stencil_size + i] = features[i][j];
-                        std::cout << "feature_" << j << " cell_" << i << " scaled: " << features[i][j] << std::endl;
-                        // std::cout << "feature_" << j << " scaling_min: " << xmin[j * stencil_size + i] << " scaling_max: " << xmax[j * stencil_size + i] << std::endl;
-
+                    for (int j = 0; j < num_cell_features; ++j) {
+                        std::string feature_name = cell_feature_names[j];
+                        if (feature_name == "pressure") {
+                            features[i][j] = obtain(this->getPerfCellPressure(fs));
+                            }
+                        else if (feature_name == "saturation") {
+                            features[i][j] = obtain(fs.saturation(FluidSystem::gasPhaseIdx));
+                            }
+                        else if (feature_name == "permeability") {
+                            const auto& connection =
+                            Base::well_ecl_.getConnections()[perf_i];
+                            // Network input is in m^2
+                            features[i][j] = Value(connection.Kh() / connection.connectionLength());
+                            }
+                        std::cout << feature_name << " cell_" << i << ": " << features[i][j] << std::endl;
+                        }
                     }
                 }
 
-                // Add local features
-                // Note: order needs to be the same as during training
-                // TODO: Needs more functionality for num_global_features > 1
-                const auto r_e_scaled =  Value(scaleFunction(r_e,
-                                                    xmin[${len(xmin)} - 3],
-                                                    xmax[${len(xmin)} - 3],
-                                                    feature_min,
-                                                    feature_max
-                                                    ));
-                const auto total_inj_gas =  Value(scaleFunction(ebosSimulator.time() * injection_rate_per_second,
-                                                    xmin[${len(xmin)} - 2],
-                                                    xmax[${len(xmin)} - 2],
-                                                    feature_min,
-                                                    feature_max
-                                                    ));
-                // Network input is based on m^2 perm, but log10
-                const auto analytical_PI_scaled = Value(scaleFunction(log10(analytical_PI),
-                                                    xmin[${len(xmin)} - 1],
-                                                    xmax[${len(xmin)} - 1],
-                                                    feature_min,
-                                                    feature_max
-                                                    ));
-                in.data_[stencil_size * num_cell_features + num_global_features - 3] = r_e_scaled;
-                in.data_[stencil_size * num_cell_features + num_global_features - 2] = total_inj_gas;
-                in.data_[stencil_size * num_cell_features + num_global_features - 1] = analytical_PI_scaled;
+            // Scale local features and order them as input tensor
+            // Note: order needs to be the same as during training
+            for (int j = 0; j < num_cell_features; ++j) {
+                for (int i = 0; i < stencil_size; ++i) {
+                    features[i][j] = scaleFunction(features[i][j]);
+                    input(j * stencil_size + i) = features[i][j];
+                    if (config_.debug) {
+                        std::cout << "feature_" << j << " cell_" << i << " scaled: " << features[i][j] << std::endl;
+                    }
+                }
+            }
+
+            // Add global features
+            // Note: order needs to be the same as during training
+            const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
+                "R_E",
+                 r_e
+            );
+            const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
+            const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
+                "TOTAL_INJ_GAS",
+                 simulator.time() * injection_rate_per_second
+            );
+            // Network input is based on m^2 perm, but log10
+            const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
+                "ANALYTICAL_PI",
+                 analytical_PI
+            );
+            input(stencil_size * num_cell_features + num_global_features - 3) = r_e_scaled;
+            input(stencil_size * num_cell_features + num_global_features - 2) = total_inj_gas;
+            input(stencil_size * num_cell_features + num_global_features - 1) = analytical_PI_scaled;
         }
         else if (config_.model_type == "co2_3d_time") {
+                        // "pressure_upper",
+            // "pressure",
+            // "pressure_lower",
+            // "saturation_upper",
+            // "saturation",
+            // "saturation_lower",
+            // "radius",
+            // "total_injected_volume",
+            // "injection_rate",
+            // "current_injection_time",
+            // "previous_shutin_time",
+            // "previous_injection_time",
+            // "older_history_time",
+            // "PI_analytical",
+
+            // Add global features
+            // Note: order needs to be the same as during training
+            const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
+                "R_E",
+                 r_e
+            );
+
+            // Calculate the moving injection and shutin time variables from the
+            // injection schedule and current time.
+            const int time_window {config_.time_window };
+            const int first_injection_length { config_.first_injection_length };
+            const int first_break_length { config_.first_break_length };
+            const int second_injection_length { config_.second_injection_length };
+
+            const auto time_in_days {simulator.time() / 86400 };
+
+            // Result variables
+            double current_injection_time  = 0.0;
+            double previous_shutin_time    = 0.0;
+            double previous_injection_time = 0.0;
+
+            if (time_in_days >= first_injection_length +  first_break_length) {
+                // Phase 3: second injection
+                current_injection_time = time_in_days - t2;
+                previous_shutin_time = first_break_length;
+                previous_injection_time = first_injection_length;
+            }
+            else if (time_in_days >= first_injection_length) {
+                // Phase 2: first break
+                current_injection_time = 0.0;
+                previous_shutin_time = time_in_days - first_injection_length;
+                previous_injection_time = first_injection_length;
+            }
+            else {
+                // Phase 1: first injection
+                current_injection_time = time_in_days;
+                previous_shutin_time = config_.time_window - time_in_days;
+                previous_injection_time = 0.0;
+            }
+
+            // Next, calculate total injected volume based on the injection periods.
+            const auto injection_rate_per_day { config_.injection_rate_per_day };
+            const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
+                "TOTAL_INJ_GAS",
+                (current_injection_time + previous_injection_time) * injection_rate_per_day
+            );
+            
+            const auto current_injection_volume = config_.template transformAndScaleInput<Value>(
+                "INJECTION_RATE",
+                injection_rate_per_day / 86400
+            );
+
+            const auto current_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
+                "CURRENT_INJECTION_TIME",
+                current_injection_time
+            );
+            const auto previous_shutin_time_scaled =  config_.template transformAndScaleInput<Value>(
+                "PREVIOUS_SHUTIN_TIME",
+                previous_shutin_time
+            );
+            const auto previous_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
+                "PREVIOUS_INJECTION_TIME",
+                previous_injection_time
+            );
+
+            const auto older_history_time = ;
+
+            const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
+                "ANALYTICAL_PI",
+                 analytical_PI
+            );
+
         }
         return input
     }
-
 
 } // namespace Opm
 

@@ -63,14 +63,15 @@ public:
     std::vector<std::pair<std::string, FeatureSpecMLNearWell>> output_features;
 
     // Model dependent parameters:
-    // - for the CO2 2D in 2D model
+    // - for the CO2 models.
     double injection_rate_per_day; // Injection rate in m^3/day
     // - for the CO2 3D model
-    int stencil_size; 
+    int stencil_size;
     // - for the CO2 3D time model
     int time_window;
     int first_injection_length;
     int first_break_length;
+    int second_injection_length;
 
     // Default constructor
     MLNearWellConfig() = default;

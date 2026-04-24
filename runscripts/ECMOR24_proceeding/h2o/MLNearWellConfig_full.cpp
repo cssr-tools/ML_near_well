@@ -35,12 +35,9 @@ namespace Opm {
 MLNearWellConfig::MLNearWellConfig(const PropertyTree& model_config)
 {
     model_path = model_config.get<std::string>("model_path", "");
-    if (model_path.empty()) {
-        throw std::runtime_error("Missing 'model_path' in MLNearWell config");
-    }
     model_type = model_config.get<std::string>("model_type", "");
-    if (model_type.empty()) {
-        throw std::runtime_error("Missing 'model_type' in MLNearWell config");
+    if (model_path.empty() != model_type.empty()) {
+        throw std::runtime_error("Only one of  'model_path' or 'model_type' is specified in MLNearWell config");
     }
     debug = model_config.get<bool>("debug", false);
 
@@ -49,9 +46,12 @@ MLNearWellConfig::MLNearWellConfig(const PropertyTree& model_config)
     parseFeatures(model_config, "features.outputs", output_features);
 
     stencil_size = model_config.get<int>("stencil_size", 0);
+    injection_rate_per_day = model_config.get<double>("injection_rate_per_day", 0.0);
+
     time_window = model_config.get<int>("time_window", 0);
     first_injection_length = model_config.get<int>("first_injection_length", 0);
     first_break_length = model_config.get<int>("first_break_length", 0);
+    second_injection_length = model_config.get<int>("second_injection_length", 0);
 }
 
 bool MLNearWellConfig::hasInputFeature(const std::string& name) const
@@ -78,34 +78,35 @@ const FeatureSpecMLNearWell& MLNearWellConfig::requireOutputFeature(const std::s
 
 // No specific validation rules implemented yet, but this is where they would go.
 void MLNearWellConfig::validateConfig() const {
-    switch (model_type) {
-        case "h2o":
-            requireFeature(input_features, "PRESSURE", "input");
-            requireFeature(input_features, "ANALYTICAL_PI", "input");
-        case "co2_2d_in_2d":
-            requireFeature(input_features, "PRESSURE", "input");
+    if (model_type == "h2o") {
+        requireFeature(input_features, "PRESSURE", "input");
+        requireFeature(input_features, "ANALYTICAL_PI", "input");
+    }
+    else if (model_type == "co2_2d") {
+        requireFeature(input_features, "PRESSURE", "input");
             requireFeature(input_features, "ANALYTICAL_PI", "input");
             requireFeature(output_features, "WELL_RATE", "output");
 
-            // Assert that the ANALYTICAL_PI feature uses a log10 transform.
+            // Warn that the 'ANALYTICAL_PI' feature might requires a log10 transform.
             const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
-            if (analytical_pi_spec.transform != Transform::Type::Log10) {
-                throw std::runtime_error("Feature 'ANALYTICAL_PI' must use log10 transform in MLNearWell config");
-            }
+            std::cout << "Warning: The 2D model for the 2D simulation was trained with 'ANALYTICAL_PI' without log10" << std::endl;
+            std::cout << "Warning: The 2D model for the 3D simulation was trained with 'ANALYTICAL_PI' with log10" << std::endl;
+            std::cout << "Current config uses '" << analytical_pi_spec.transform.name() << "' for 'ANALYTICAL_PI'" << std::endl;
+    }
+    else if (model_type == "co2_3d") {
+        if (stencil_size <= 0) {
+            throw std::runtime_error("Invalid 'stencil_size' for CO2 3D model in MLNearWell config");
+        }
+        const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+        if (!analytical_pi_spec == Transform("log10")) {
+            throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI', but config specifies '" + analytical_pi_spec.transform.name() + "'");
+        }   
+    }
+    else if (model_type == "co2_3d_time_in_3d_time") {
+        if (time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0) {
+            throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
+        }
 
-
-        case "co2_2d_in_3d":
-            requireFeature(input_features, "PRESSURE", "input");
-            requireFeature(input_features, "ANALYTICAL_PI", "input");
-            requireFeature(output_features, "WELL_RATE", "output");
-        case "co2_3d_in_3d":
-            if (stencil_size <= 0) {
-                throw std::runtime_error("Invalid 'stencil_size' for CO2 3D model in MLNearWell config");
-            }
-        case "co2_3d_time_in_3d_time":  
-            if (time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0) {
-                throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
-            }
     }
 }
 
