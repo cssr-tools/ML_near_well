@@ -85,26 +85,38 @@ void MLNearWellConfig::validateConfig() const {
     else if (model_type == "co2_2d") {
         requireFeature(input_features, "PRESSURE", "input");
             requireFeature(input_features, "ANALYTICAL_PI", "input");
-            requireFeature(output_features, "WELL_RATE", "output");
+            requireFeature(output_features, "WI", "output");
 
-            // Warn that the 'ANALYTICAL_PI' feature might requires a log10 transform.
+            // NOTE: The log10 transform takes place in co2_2d/upscale.py
             const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
-            std::cout << "Warning: The 2D model for the 2D simulation was trained with 'ANALYTICAL_PI' without log10" << std::endl;
-            std::cout << "Warning: The 2D model for the 3D simulation was trained with 'ANALYTICAL_PI' with log10" << std::endl;
-            std::cout << "Current config uses '" << analytical_pi_spec.transform.name() << "' for 'ANALYTICAL_PI'" << std::endl;
+            const auto& wi_spec = requireFeature(output_features, "WI", "output");
+            if (analytical_pi_spec.transform.name() != "log10" || wi_spec.transform.name() != "log10") {
+                throw std::runtime_error("CO2 2D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies '" + analytical_pi_spec.transform.name() + "' and '" + wi_spec.transform.name() + "'");
+            }
+
     }
     else if (model_type == "co2_3d") {
         if (stencil_size <= 0) {
             throw std::runtime_error("Invalid 'stencil_size' for CO2 3D model in MLNearWell config");
         }
+
+        // NOTE: The log10 transform takes place in co2_3d/nn.py
         const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
-        if (!analytical_pi_spec == Transform("log10")) {
-            throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI', but config specifies '" + analytical_pi_spec.transform.name() + "'");
-        }   
+        const auto& wi_spec = requireFeature(output_features, "WI", "output");
+        if (analytical_pi_spec.transform.name() != "log10" || wi_spec.transform.name() != "log10") {
+            throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies '" + analytical_pi_spec.transform.name() + "' and '" + wi_spec.transform.name() + "'");
+        }
     }
     else if (model_type == "co2_3d_time_in_3d_time") {
         if (time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0) {
             throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
+        }
+
+        // NOTE: The log10 transform takes place in co2_3d/nn.py
+        const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+        const auto& wi_spec = requireFeature(output_features, "WI", "output");
+        if (analytical_pi_spec.transform.name() != "log10" || wi_spec.transform.name() != "log10") {
+            throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies '" + analytical_pi_spec.transform.name() + "' and '" + wi_spec.transform.name() + "'");
         }
 
     }

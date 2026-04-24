@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import pathlib
 from typing import Any
@@ -170,6 +171,15 @@ def restructure_data(
     if trainspecs["WI_log"]:
         targets = np.log10(targets)
         new_features_lst.append(np.log10(features[..., -1]))
+
+        # Update the config to reflect the log10 transform for the analytical PI
+        # feature and the WI target.
+        with (nn_dirname / "MLNearWellConfig.json").open() as f:
+            config = json.load(f)
+            config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
+            config["features"]["outputs"]["WI"]["transform"] = "log10"
+            json.dump(config, f, indent=4)
+
     else:
         new_features_lst.append(features[..., -1])
 

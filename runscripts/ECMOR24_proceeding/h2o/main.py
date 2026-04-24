@@ -80,7 +80,7 @@ if False:
 
 
 # Create dataset.
-if False:
+if True:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -139,7 +139,7 @@ if False:
         )
 
 # Tune and train model.
-if False:
+if True:
     tune_and_train(
         trainspecs,
         data_dir,

@@ -2896,7 +2896,7 @@ namespace Opm
                 "TOTAL_INJ_GAS",
                  simulator.time() * injection_rate_per_second
             );
-            // Network input is based on m^2 perm, but log10
+            // analytical Peaceman well index.
             const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
                 "ANALYTICAL_PI",
                  analytical_PI
@@ -2985,8 +2985,10 @@ namespace Opm
                 "PREVIOUS_INJECTION_TIME",
                 previous_injection_time
             );
-
-            const auto older_history_time = ;
+            const auto older_history_time = config_.template transformAndScaleInput<Value>(
+                "OLDER_HISTORY_TIME",
+                time_window - time_in_days
+            );
 
             const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
                 "ANALYTICAL_PI",
