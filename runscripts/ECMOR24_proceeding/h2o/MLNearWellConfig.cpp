@@ -81,7 +81,7 @@ parseFeatures(const PropertyTree& pt, const std::string& path,
     for (const auto& name : subtreeOpt->get_child_keys()) {
         const PropertyTree& ft = subtreeOpt->get_child(name);
         FeatureSpecMLNearWell spec;
-        spec.transform = Transform(ft.get<std::string>("feature_engineering", "none"));
+        spec.transform = TransformValue(ft.get<std::string>("feature_engineering", "none"));
 
         if (auto sOpt = ft.get_child_optional("scaling_params")) {
             const PropertyTree& s = *sOpt;

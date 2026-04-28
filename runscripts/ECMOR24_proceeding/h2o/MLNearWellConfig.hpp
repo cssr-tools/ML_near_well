@@ -24,6 +24,8 @@
 
 #include <opm/simulators/flow/HybridNewtonConfig.hpp>
 
+#include <opm/material/common/MathToolbox.hpp>
+
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -34,14 +36,100 @@ namespace Opm {
 class PropertyTree;
 
 /*!
+ * \brief Represents scaling information for a feature.
+ *
+ * Supports standard (mean/std) and min-max scaling.
+ */
+struct ScalerValue
+{
+    enum class Type { None, Standard, MinMax } type = Type::None;
+    double mean = 0.0;
+    double std  = 1.0;
+    double min  = 0.0;
+    double max  = 1.0;
+    double range_min = -1.0;
+    double range_max = 1.0;
+
+    template<class Value>
+    Value scale(Value raw_value) const
+    {
+        switch (type) {
+            case Type::Standard:
+                return (std == 0.0) ? mean : (raw_value - mean) / std;
+            case Type::MinMax: {
+                double denom = max - min;
+                Value X_std = (denom == 0.0) ? min : (raw_value - min) / denom;
+                return X_std * (range_max - range_min) + range_min;
+            }
+            case Type::None:
+            default:
+                return raw_value;
+        }
+    }
+
+    template<class Value>
+    Value unscale(Value scaled_value) const
+    {
+        switch (type) {
+            case Type::Standard: return scaled_value * std + mean;
+            case Type::MinMax:{
+                Value X_std = (scaled_value - range_min) / (range_max - range_min);
+                return X_std * (max - min) + min;
+            }
+            case Type::None:
+            default:             return scaled_value;
+        }
+    }
+};
+
+/*!
+ * \brief Represents a transformation applied to a feature.
+ *
+ * Supports log, log10, log1p, and no transform. Provides forward
+ * and inverse methods.
+ */
+struct TransformValue
+{
+    enum class Type { None, Log10 } type = Type::None;
+
+    TransformValue() = default;
+    explicit TransformValue(const std::string& name)
+    {
+        if      (name == "log10") type = Type::Log10;
+        else                       type = Type::None;
+    }
+
+    template<class Value>
+    Value apply(Value raw_value) const
+    {
+        switch (type) {
+            case Type::Log10: return log10(raw_value);
+            case Type::None:
+            default:          return raw_value;
+        }
+    }
+
+    template<class Value>
+    Value applyInverse(Value transformed_value) const
+    {
+        switch (type) {
+            case Type::Log10: return pow(10.0, transformed_value);
+            case Type::None:
+            default:          return transformed_value;
+        }
+    }
+};
+
+
+/*!
  * \brief Metadata for a single MLNearWell feature (input or output).
  *
  * Includes transformation, scaling, delta flag, and actual feature name.
  */
 struct FeatureSpecMLNearWell
 {
-    Transform transform;
-    Scaler scaler;
+    TransformValue transform;
+    ScalerValue scaler;
     std::string actual_name;
 
     FeatureSpecMLNearWell() = default;
@@ -84,14 +172,14 @@ public:
     Value transformAndScaleInput(const std::string& name, const Value& raw_value) const
     {
         const auto& spec = requireInputFeature(name);
-        return spec.scaler.scale(spec.transform.apply(raw_value));
+        return spec.scaler.scale<Value>(spec.transform.apply<Value>(raw_value));
     }
 
     template<class Value>
     Value unscaleAndInverseOutput(const std::string& name, const Value& model_value) const
     {
         const auto& spec = requireOutputFeature(name);
-        return spec.transform.applyInverse(spec.scaler.unscale(model_value));
+        return spec.transform.applyInverse<Value>(spec.scaler.unscale<Value>(model_value));
     }
 
     /*!
