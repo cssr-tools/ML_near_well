@@ -201,21 +201,38 @@ class CO2_2D_Upscaler(BaseUpscaler):
 
         WI_data = self.reduce_data_size(WI_data, step_size_x, step_size_t)
 
+        # NOTE For the following, the MLNearWellConfig file is assumed to have been
+        # created by pyopmnearwell.ml.nn.scale_and_prepare_dataset in the nn directory.
+
         # Take logarithms.
         if log_geom_WI:
             feature_lst[1] = np.log10(feature_lst[1])
+
             # Update the config to reflect the log10 transform for the analytical PI
             # feature.
-            with (nn_dirname / "MLNearWellConfig.json").open() as f:
-                config = json.load(f)
+            config_file = ensemble_dirname.parent / "nn" / "MLNearWellConfig.json"
+            if not config_file.exists() or config_file.stat().st_size == 0:
+                config = {}
+            else:
+                with config_file.open("r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+            with config_file.open("w", encoding="utf-8") as f:
                 config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
                 json.dump(config, f, indent=4)
 
         if log_WI:
             WI_data = np.log10(WI_data)
+
             # Update the config to reflect the log10 transform for the WI target.
-            with (nn_dirname / "MLNearWellConfig.json").open() as f:
-                config = json.load(f)
+            config_file = ensemble_dirname.parent / "nn" / "MLNearWellConfig.json"
+            if not config_file.exists() or config_file.stat().st_size == 0:
+                config = {}
+            else:
+                with config_file.open("r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+            with config_file.open("w", encoding="utf-8") as f:
                 config["features"]["outputs"]["WI"]["transform"] = "log10"
                 json.dump(config, f, indent=4)
 
