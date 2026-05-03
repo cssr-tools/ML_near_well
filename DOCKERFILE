@@ -73,8 +73,8 @@ RUN mkdir -p "$OPM_ROOT" && \
         cd "$repo/build" && \
         cmake -DCMAKE_BUILD_TYPE=Release .. && \
         if [ "$repo" = "opm-simulators" ]; then \
-            make -j"$OPM_BUILD_JOBS" flow && \
-            (make -j"$OPM_BUILD_JOBS" flow_gaswater_dissolution_diffuse || true); \
+            # make -j"$OPM_BUILD_JOBS" flow && \
+            make -j"$OPM_BUILD_JOBS" flow_gaswater_dissolution_diffuse; \
         else \
             make -j"$OPM_BUILD_JOBS"; \
         fi && \
