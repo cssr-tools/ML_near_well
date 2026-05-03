@@ -34,6 +34,7 @@
 #include <opm/input/eclipse/Units/Units.hpp>
 
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
+#include <opm/simulators/flow/FlowProblemParameters.hpp>
 #include <opm/simulators/wells/StandardWellAssemble.hpp>
 #include <opm/simulators/wells/VFPHelpers.hpp>
 #include <opm/simulators/wells/WellBhpThpCalculator.hpp>

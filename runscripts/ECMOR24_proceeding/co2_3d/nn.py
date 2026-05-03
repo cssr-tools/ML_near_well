@@ -73,6 +73,9 @@ def restructure_data(
         stencil_size (int, optional): _description_. Defaults to 3.
 
     """
+    data_dirname = pathlib.Path(data_dirname)
+    new_data_dirname = pathlib.Path(new_data_dirname)
+
     # Load data.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
@@ -172,10 +175,19 @@ def restructure_data(
         targets = np.log10(targets)
         new_features_lst.append(np.log10(features[..., -1]))
 
+        # NOTE For the following, the MLNearWellConfig file is assumed to have been
+        # created by pyopmnearwell.ml.nn.scale_and_prepare_dataset in the nn directory.
+
         # Update the config to reflect the log10 transform for the analytical PI
         # feature and the WI target.
-        with (nn_dirname / "MLNearWellConfig.json").open() as f:
-            config = json.load(f)
+        config_file = data_dirname.parent / "nn" / "MLNearWellConfig.json"
+        if not config_file.exists() or config_file.stat().st_size == 0:
+            config = {}
+        else:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+
+        with config_file.open("w", encoding="utf-8") as f:
             config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
             config["features"]["outputs"]["WI"]["transform"] = "log10"
             json.dump(config, f, indent=4)

@@ -80,7 +80,7 @@ if False:
 
 
 # Create dataset.
-if True:
+if False:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -139,7 +139,7 @@ if True:
         )
 
 # Tune and train model.
-if True:
+if False:
     tune_and_train(
         trainspecs,
         data_dir,
@@ -182,7 +182,7 @@ if False:
     )
 
 # Integrate into OPM.
-if True:
+if False:
     integration.recompile_flow(
         runspecs_integration_1["constants"]["OPM"],
         dirname,
@@ -202,7 +202,7 @@ if True:
 
 
 # Plot results.
-if True:
+if False:
     for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
             integration_dir / "run_0" / "output" / "5X5M_PEACEMAN.SMSPEC",
@@ -237,9 +237,7 @@ if True:
 # Restore default OPM StandardWell files after integration workflow finishes.
 if True:
     integration.recompile_flow(
-        nn_dir / "scalings.csv",
         runspecs_integration_1["constants"]["OPM"],
-        dirname / "StandardWell_impl.mako",
-        dirname / "StandardWell.hpp",
+        dirname,
         reset=True,
     )

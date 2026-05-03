@@ -20,7 +20,7 @@
 */
 
 #include <config.h>
-#include <opm/simulators/flow/MLNearWellConfig.hpp>
+#include <opm/simulators/wells/MLNearWellConfig.hpp>
 
 #include <opm/common/ErrorMacros.hpp>
 
@@ -86,21 +86,21 @@ parseFeatures(const PropertyTree& pt, const std::string& path,
         if (auto sOpt = ft.get_child_optional("scaling_params")) {
             const PropertyTree& s = *sOpt;
             if (s.get_child_optional("mean") && s.get_child_optional("std")) {
-                spec.scaler.type = Scaler::Type::Standard;
+                spec.scaler.type = ScalerValue::Type::Standard;
                 spec.scaler.mean = s.get<double>("mean", 0.0);
                 spec.scaler.std  = s.get<double>("std", 1.0);
             }
             else if (s.get_child_optional("min") && s.get_child_optional("max")) {
-                spec.scaler.type = Scaler::Type::MinMax;
+                spec.scaler.type = ScalerValue::Type::MinMax;
                 spec.scaler.min  = s.get<double>("min", 0.0);
                 spec.scaler.max  = s.get<double>("max", 1.0);
             }
             else {
-                spec.scaler.type = Scaler::Type::None;
+                spec.scaler.type = ScalerValue::Type::None;
             }
         }
         else {
-            spec.scaler.type = Scaler::Type::None;
+            spec.scaler.type = ScalerValue::Type::None;
         }
 
         spec.actual_name = name;
