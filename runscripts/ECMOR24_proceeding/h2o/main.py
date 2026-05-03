@@ -182,7 +182,7 @@ if False:
     )
 
 # Integrate into OPM.
-if False:
+if True:
     integration.recompile_flow(
         runspecs_integration_1["constants"]["OPM"],
         dirname,

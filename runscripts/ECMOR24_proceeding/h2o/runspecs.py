@@ -10,12 +10,12 @@ dirname: pathlib.Path = pathlib.Path(__file__).parent
 OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
 FLOW: pathlib.Path = pathlib.Path("/usr") / "local" / "bin" / "flow"
 
-NUM_MEMBERS: int = 5
+NUM_MEMBERS: int = 2
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 5,  # number of parallel runs
+    "npruns": 2,  # number of parallel runs
     "variables": {
         "INIT_PRESSURE": (
             50 * units.BAR_TO_PASCAL,
