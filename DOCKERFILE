@@ -58,16 +58,52 @@ RUN apt-get install -y --no-install-recommends \
 
 RUN python3.10 -m pip install --upgrade pip setuptools wheel
 
+# Create a non-root user to run the reproducibility workflow. Set up the ML_near_well 
+# and pyopmnearwell repositories and install their Python dependencies. 
+RUN useradd -ms /bin/bash diligent_researcher
+USER diligent_researcher
+
+ENV HOME=/home/diligent_researcher
+WORKDIR $HOME
+
+# Copy ML_near_well repository into the image and install Python dependencies.
+COPY . ./ML_near_well
+RUN cd ML_near_well && \
+    python3.10 -m pip install -r requirements.txt
+
+# Clone and install pyopmnearwell.
+RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
+    cd pyopmnearwell && \
+    python3.10 -m pip install -e .
+
+
+# Switch back to root user to clone and build OPM from source. The OPM files are
+# slightly modified to include the ML near-well model.
+
+USER root
+
 ENV OPM_ROOT=/opt/opm_src
 ENV OPM_PATH=$OPM_ROOT
 ENV FLOW_PATH=$OPM_ROOT/opm-simulators/build/bin/flow
 
-# Clone and build OPM from source following the documented sibling-repository layout.
-RUN mkdir -p "$OPM_ROOT" && \
-    cd "$OPM_ROOT" && \
-    for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
+# Clone OPM following the documented sibling-repository layout.
+RUN mkdir -p "$OPM_ROOT" 
+WORKDIR $OPM_ROOT
+
+RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
         git clone --branch "$OPM_REF" --depth 1 "https://github.com/OPM/${repo}.git"; \
-    done && \
+    done
+
+# Copy modified OPM ML near-well model files from ML_near_well repository.
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.cpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.cpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp ./opm-simulators/opm/simulators/wells/StandardWell.hpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp ./opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
+COPY $HOME/ML_near_well/runscripts/ECMOR24_proceeding/h2o/CMakeLists_files.cmake ./opm-simulators/CMakeLists_files.cmake
+
+RUN cd "$OPM_ROOT" && \
     for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
         mkdir -p "$repo/build" && \
         cd "$repo/build" && \
@@ -83,24 +119,11 @@ RUN mkdir -p "$OPM_ROOT" && \
     ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
     ln -sf "$OPM_ROOT/opm-common/build/bin/co2brinepvt" /usr/local/bin/co2brinepvt
 
-RUN useradd -ms /bin/bash diligent_researcher
-USER diligent_researcher
-
-ENV HOME=/home/diligent_researcher
-WORKDIR $HOME
 
 # Ensure standard install locations and source-built Flow are on PATH.
 RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> "$HOME/.bashrc"
 
-# Clone and install ML_near_well.
-RUN git clone --branch reproducible https://github.com/cssr-tools/ML_near_well && \
-    cd ML_near_well && \
-    python3.10 -m pip install -r requirements.txt
-
-# Clone and install pyopmnearwell.
-RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
-    cd pyopmnearwell && \
-    python3.10 -m pip install -e .
-
-# Default command: run the reproducibility workflow.
-CMD ["bash", "-lc", "cd /home/diligent_researcher/ML_near_well && bash runscripts/run.bash"]
+# Switch back to non-root user and run the reproducibility workflow.
+USER diligent_researcher
+WORKDIR $HOME
+CMD ["bash", "-lc", "cd ./ML_near_well && bash runscripts/run.bash"]
