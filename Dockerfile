@@ -63,18 +63,18 @@ RUN python3.10 -m pip install --upgrade pip setuptools wheel
 RUN useradd -ms /bin/bash diligent_researcher
 USER diligent_researcher
 
-#ENV HOME=/home/diligent_researcher
-#WORKDIR $HOME
+ENV HOME=/home/diligent_researcher
+WORKDIR $HOME
 
 # Copy ML_near_well repository into the image and install Python dependencies.
-#COPY . ./ML_near_well
-#RUN cd ML_near_well && \
-#    python3.10 -m pip install -r requirements.txt
+COPY . ./ML_near_well
+RUN cd ML_near_well && \
+   python3.10 -m pip install -r requirements.txt
 
 # Clone and install pyopmnearwell.
-#RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
-#    cd pyopmnearwell && \
-#    python3.10 -m pip install -e .
+RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
+   cd pyopmnearwell && \
+   python3.10 -m pip install -e .
 
 
 # Switch back to root user to clone and build OPM from source. The OPM files are
@@ -104,20 +104,10 @@ RUN mkdir -p "$OPM_ROOT/opm-grid/build" && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
     make -j$OPM_BUILD_JOBS
 
-ENV HOME=/home/diligent_researcher
-WORKDIR $HOME
-
-# Copy ML_near_well repository into the image and install Python dependencies.
-COPY . ./ML_near_well
-
-WORKDIR $OPM_ROOT
-
 # Copy modified OPM ML near-well model files from ML_near_well repository before
 # building the simulators.
 COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
 COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
-#COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemBlackoil.hpp ./opm-simulators/opm/simulators/flow/FlowProblemBlackoil.hpp
-#COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.cpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.cpp
 COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp ./opm-simulators/opm/simulators/wells/StandardWell.hpp
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp ./opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
