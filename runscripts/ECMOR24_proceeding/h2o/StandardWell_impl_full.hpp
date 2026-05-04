@@ -84,6 +84,10 @@ namespace Opm
         Base::init(depth_arg, gravity_arg, B_avg, changed_to_open_this_step);
         this->StdWellEval::init(this->perf_depth_, depth_arg, Base::has_polymermw);
 
+        // Check if ML Near-Well flag activated 
+        if (!Parameters::Get<Parameters::UseMLNearWell>())
+            return;
+
         // Load ML near-well model config.
         if (!configLoaded_) {
             std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
@@ -284,7 +288,7 @@ namespace Opm
             }
 
             // Use well index from ML.
-            if (!config_.model_path.empty()) {
+            if (Parameters::Get<Parameters::UseMLNearWell>()) {
                 Value WI;
                 if (allow_cf) {
                     OPM_DEFLOG_THROW(std::runtime_error,

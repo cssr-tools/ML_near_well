@@ -70,7 +70,10 @@ void registerFlowProblemParameters()
         ("Maximum number of reported failures for each individual saturation function consistency check");
 
     Parameters::Register<Parameters::MLNearWellConfigFile>
-        ("JSON Config file path for ML Near-Well Newton");
+        ("JSON Config file path for ML Near-Well");
+
+    Parameters::Register<Parameters::UseMLNearWell>
+        ("Wheter or not to use ML Near-Well");
 
     Parameters::Register<Parameters::HyNeConfigFile>
         ("Use config files for Hybrid Newton");

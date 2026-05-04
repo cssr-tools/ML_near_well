@@ -56,8 +56,10 @@ struct OutputMode { static constexpr auto value = "all"; };
 // between writing restart files
 struct RestartWritingInterval { static constexpr int value = 0xffffff; }; // disable
 
-// Path to the config file containing all ML near-well Newton parameters
+// Path to the config file containing all ML near-well parameters
 struct MLNearWellConfigFile { static constexpr auto value = "MLNearWellConfig.json"; };
+// Wheter or not to use ML Near-Well
+struct UseMLNearWell { static constexpr bool value = false; }; 
 
 // Path to the config file containing all Hybrid Newton parameters
 struct HyNeConfigFile { static constexpr auto value = "hybridNewtonConfig.json"; };

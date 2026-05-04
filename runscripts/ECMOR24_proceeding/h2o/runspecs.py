@@ -82,6 +82,14 @@ runspecs_integration_1: dict[str, Any] = {
             "52x52m_Peaceman",
             "27x27m_Peaceman",
         ],
+        "USEMLNEARWELL": ["",
+        "--UseMLNearWell=true",
+        "--UseMLNearWell=true", 
+        "--UseMLNearWell=true",
+        "",
+        "",
+        ""
+        ],
     },
     "constants": {
         **runspecs_ensemble["constants"],
