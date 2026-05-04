@@ -8,7 +8,7 @@ LABEL email="peter.schultzendorff@uib.no"
 # Suppress interactive dialogue during package installation.
 ARG DEBIAN_FRONTEND=noninteractive
 ARG OPM_REF=release/2025.10
-ARG OPM_BUILD_JOBS=2
+ARG OPM_BUILD_JOBS=5
 
 # Switch to root user to install packages.
 USER root
@@ -63,18 +63,18 @@ RUN python3.10 -m pip install --upgrade pip setuptools wheel
 RUN useradd -ms /bin/bash diligent_researcher
 USER diligent_researcher
 
-ENV HOME=/home/diligent_researcher
-WORKDIR $HOME
+#ENV HOME=/home/diligent_researcher
+#WORKDIR $HOME
 
 # Copy ML_near_well repository into the image and install Python dependencies.
-COPY . ./ML_near_well
-RUN cd ML_near_well && \
-    python3.10 -m pip install -r requirements.txt
+#COPY . ./ML_near_well
+#RUN cd ML_near_well && \
+#    python3.10 -m pip install -r requirements.txt
 
 # Clone and install pyopmnearwell.
-RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
-    cd pyopmnearwell && \
-    python3.10 -m pip install -e .
+#RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
+#    cd pyopmnearwell && \
+#    python3.10 -m pip install -e .
 
 
 # Switch back to root user to clone and build OPM from source. The OPM files are
@@ -93,29 +93,46 @@ RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
         git clone --branch "$OPM_REF" --depth 1 "https://github.com/OPM/${repo}.git"; \
     done
 
-# Copy modified OPM ML near-well model files from ML_near_well repository.
+# Build OPM components in the correct order.
+RUN mkdir -p "$OPM_ROOT/opm-common/build" && \
+    cd "$OPM_ROOT/opm-common/build" && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$OPM_BUILD_JOBS
+
+RUN mkdir -p "$OPM_ROOT/opm-grid/build" && \
+    cd "$OPM_ROOT/opm-grid/build" && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$OPM_BUILD_JOBS
+
+ENV HOME=/home/diligent_researcher
+WORKDIR $HOME
+
+# Copy ML_near_well repository into the image and install Python dependencies.
+COPY . ./ML_near_well
+
+WORKDIR $OPM_ROOT
+
+# Copy modified OPM ML near-well model files from ML_near_well repository before
+# building the simulators.
 COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
 COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.cpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.cpp
+#COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemBlackoil.hpp ./opm-simulators/opm/simulators/flow/FlowProblemBlackoil.hpp
+#COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.cpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.cpp
 COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp ./opm-simulators/opm/simulators/wells/StandardWell.hpp
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp ./opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
-#COPY runscripts/ECMOR24_proceeding/h2o/CMakeLists_files.cmake ./opm-simulators/CMakeLists_files.cmake
 
-RUN cd "$OPM_ROOT" && \
-    for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
-        mkdir -p "$repo/build" && \
-        cd "$repo/build" && \
-        cmake -DCMAKE_BUILD_TYPE=Release .. && \
-        if [ "$repo" = "opm-simulators" ]; then \
-            # make -j"$OPM_BUILD_JOBS" flow && \
-            make -j"$OPM_BUILD_JOBS" flow_gaswater_dissolution_diffuse; \
-        else \
-            make -j"$OPM_BUILD_JOBS"; \
-        fi && \
-        cd "$OPM_ROOT"; \
-    done && \
-    ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
+RUN mkdir -p "$OPM_ROOT/opm-simulators/build" && \
+    cd "$OPM_ROOT/opm-simulators/build" && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$OPM_BUILD_JOBS flow_gaswater_dissolution_diffuse
+
+RUN mkdir -p "$OPM_ROOT/opm-upscaling/build" && \
+    cd "$OPM_ROOT/opm-upscaling/build" && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$OPM_BUILD_JOBS
+
+RUN ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
     ln -sf "$OPM_ROOT/opm-common/build/bin/co2brinepvt" /usr/local/bin/co2brinepvt
 
 

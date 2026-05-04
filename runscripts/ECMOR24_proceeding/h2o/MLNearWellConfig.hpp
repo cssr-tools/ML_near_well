@@ -19,21 +19,21 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MLNearWell_CONFIG_HPP
-#define MLNearWell_CONFIG_HPP
+#ifndef MLNEARWELL_CONFIG_HPP
+#define MLNEARWELL_CONFIG_HPP
 
-#include <opm/simulators/flow/HybridNewtonConfig.hpp>
 
-#include <opm/material/common/MathToolbox.hpp>
-
+#include <algorithm>
 #include <cmath>
-#include <stdexcept>
+#include <fstream>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
-namespace Opm {
+#include <opm/material/common/MathToolbox.hpp>
+#include <opm/simulators/linalg/PropertyTree.hpp>
 
-class PropertyTree;
+namespace Opm {
 
 /*!
  * \brief Represents scaling information for a feature.
@@ -120,14 +120,12 @@ struct TransformValue
     }
 };
 
-
 /*!
  * \brief Metadata for a single MLNearWell feature (input or output).
  *
  * Includes transformation, scaling, delta flag, and actual feature name.
  */
-struct FeatureSpecMLNearWell
-{
+struct FeatureSpecMLNearWell {
     TransformValue transform;
     ScalerValue scaler;
     std::string actual_name;
@@ -141,8 +139,7 @@ struct FeatureSpecMLNearWell
  * Encapsulates model path, cell indices, apply times, input/output
  * features, and validation. Can be constructed from a PropertyTree.
  */
-class MLNearWellConfig
-{
+class MLNearWellConfig {
 public:
     std::string model_path;
     bool debug;
@@ -158,15 +155,36 @@ public:
     * Loads model path, cell indices, apply times, and features from
     * the provided PropertyTree. Throws on missing or invalid entries.
     */
-    explicit MLNearWellConfig(const PropertyTree& model_config);
+    explicit MLNearWellConfig(const PropertyTree& model_config)
+    {
+        model_path = model_config.get<std::string>("model_path", "");
+        if (model_path.empty())
+            throw std::runtime_error("Missing 'model_path' in MLNearWell config");
 
-    bool hasInputFeature(const std::string& name) const;
+        debug = model_config.get<bool>("debug", false);
 
-    bool hasOutputFeature(const std::string& name) const;
+        // Parse features
+        parseFeatures(model_config, "features.inputs", input_features);
+        parseFeatures(model_config, "features.outputs", output_features);
+    }
 
-    const FeatureSpecMLNearWell& requireInputFeature(const std::string& name) const;
+    bool hasInputFeature(const std::string& name) const {
+        return std::any_of(input_features.begin(), input_features.end(),
+                           [&](const auto& p) { return p.first == name; });
+    }
 
-    const FeatureSpecMLNearWell& requireOutputFeature(const std::string& name) const;
+    bool hasOutputFeature(const std::string& name) const {
+        return std::any_of(output_features.begin(), output_features.end(),
+                           [&](const auto& p) { return p.first == name; });
+    }
+
+    const FeatureSpecMLNearWell& requireInputFeature(const std::string& name) const {
+        return requireFeature(input_features, name, "input");
+    }
+
+    const FeatureSpecMLNearWell& requireOutputFeature(const std::string& name) const {
+        return requireFeature(output_features, name, "output");
+    }
 
     template<class Value>
     Value transformAndScaleInput(const std::string& name, const Value& raw_value) const
@@ -186,7 +204,8 @@ public:
     * \brief Validate feature compatibility with simulator settings.
     *
     */
-    void validateConfig() const;
+    // No specific validation rules implemented yet, but this is where they would go.
+    void validateConfig() const {}
 
 private:
     /*!
@@ -200,11 +219,52 @@ private:
     * \param features Destination vector of (name, FeatureSpec) pairs.
     */
     void parseFeatures(const PropertyTree& pt, const std::string& path,
-                       std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features);
+                       std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features) {
+        auto subtreeOpt = pt.get_child_optional(path);
+        if (!subtreeOpt) return;
+
+        for (const auto& name : subtreeOpt->get_child_keys()) {
+            const PropertyTree& ft = subtreeOpt->get_child(name);
+            FeatureSpecMLNearWell spec;
+            spec.transform = TransformValue(ft.get<std::string>("feature_engineering", "none"));
+
+            if (auto sOpt = ft.get_child_optional("scaling_params")) {
+                const PropertyTree& s = *sOpt;
+                if (s.get_child_optional("mean") && s.get_child_optional("std")) {
+                    spec.scaler.type = ScalerValue::Type::Standard;
+                    spec.scaler.mean = s.get<double>("mean", 0.0);
+                    spec.scaler.std  = s.get<double>("std", 1.0);
+                }
+                else if (s.get_child_optional("min") && s.get_child_optional("max")) {
+                    spec.scaler.type = ScalerValue::Type::MinMax;
+                    spec.scaler.min  = s.get<double>("min", 0.0);
+                    spec.scaler.max  = s.get<double>("max", 1.0);
+                }
+                else {
+                    spec.scaler.type = ScalerValue::Type::None;
+                }
+            }
+            else {
+                spec.scaler.type = ScalerValue::Type::None;
+            }
+
+            spec.actual_name = name;
+
+            features.emplace_back(name, std::move(spec));
+        }
+    }
 
     const FeatureSpecMLNearWell& requireFeature(const std::vector<std::pair<std::string, FeatureSpecMLNearWell>>& features,
-                                      const std::string& name,
-                                      const char* feature_kind) const;
+                                    const std::string& name,
+                                    const char* feature_kind) const
+    {
+        for (const auto& kv : features) {
+            if (kv.first == name) return kv.second;
+        }
+        throw std::runtime_error(std::string("Missing required ") + feature_kind +
+        " feature in MLNearWell config: '" + name + "'");
+    }
+
 };
 
 } // namespace Opm
