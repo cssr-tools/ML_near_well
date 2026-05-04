@@ -210,7 +210,6 @@ list (APPEND MAIN_SOURCE_FILES
   opm/simulators/wells/GlobalWellInfo.cpp
   opm/simulators/wells/GroupEconomicLimitsChecker.cpp
   opm/simulators/wells/GroupState.cpp
-  opm/simulators/wells/MLNearWellConfig.cpp
   opm/simulators/wells/MSWellHelpers.cpp
   opm/simulators/wells/MultisegmentWellAssemble.cpp
   opm/simulators/wells/MultisegmentWellEquations.cpp
@@ -1115,7 +1114,6 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/wells/GroupEconomicLimitsChecker.hpp
   opm/simulators/wells/GroupState.hpp
   opm/simulators/wells/GuideRateHandler.hpp
-  opm/simulators/wells/MLNearWellConfig.hpp
   opm/simulators/wells/MSWellHelpers.hpp
   opm/simulators/wells/MultisegmentWell.hpp
   opm/simulators/wells/MultisegmentWell_impl.hpp
