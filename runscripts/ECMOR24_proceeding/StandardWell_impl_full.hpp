@@ -2796,22 +2796,21 @@ namespace Opm
 
                 input.data_ = {p, analytical_PI_scaled, tot_inj_gas};
         }
-        else if (config_.model_type == "co2_3d") {
-            std::string cell_feature_names[${len(cell_feature_names)}];
-            const int stencil_size{ ${stencil_size} };
-            const int num_cell_features{ ${len(cell_feature_names)} };
 
-            % for cell_feature_name in cell_feature_names:
+        // Static and time-dependent CO2 3D model.
+        else if (config_.model_type.rfind("co2_3d",0) == 0) {
+            std::string cell_feature_names[${len(cell_feature_names)}];
+
+            &for cell_feature_name in cell_feature_names:
             cell_feature_names[${loop.index}] = "${cell_feature_name}";
             % endfor
 
             // Radius, total injected gas and analytical PI are the global features
-            const int num_global_features { 3 };
             const auto r_e = Base::well_ecl_.getConnections()[0].r0();
             const auto injection_rate_per_second { config_.injection_rate_per_day / 86000 };
 
             // Get values for local features.
-            std::array<std::array<Value, config_.stencil_size>, num_cell_features> features;
+            std::array<std::array<Value, config_.stencil_size>, config_.num_local_features> local_features;
 
             for (int i = 0; i < config_.stencil_size; ++i) {
                 // Perforation index
@@ -2819,7 +2818,7 @@ namespace Opm
 
                 // Upper boundary: Set padding
                 if (perf_i < 0 ) {
-                    for (int j = 0; j < num_cell_features; ++j) {
+                    for (int j = 0; j < config_.num_local_features; ++j) {
                         std::string feature_name = cell_feature_names[j];
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
@@ -2881,7 +2880,7 @@ namespace Opm
             // Note: order needs to be the same as during training
             for (int j = 0; j < num_cell_features; ++j) {
                 for (int i = 0; i < stencil_size; ++i) {
-                    features[i][j] = scaleFunction(features[i][j]);
+                    features[i][j] = config_.template transformAndScaleInput<Value>(features[i][j]);
                     input(j * stencil_size + i) = features[i][j];
                     if (config_.debug) {
                         std::cout << "feature_" << j << " cell_" << i << " scaled: " << features[i][j] << std::endl;
@@ -2889,116 +2888,118 @@ namespace Opm
                 }
             }
 
-            // Add global features
-            // Note: order needs to be the same as during training
-            const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
-                "R_E",
-                 r_e
-            );
-            const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
-            const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
-                "TOTAL_INJ_GAS",
-                 simulator.time() * injection_rate_per_second
-            );
-            // analytical Peaceman well index.
-            const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
-                "ANALYTICAL_PI",
-                 analytical_PI
-            );
-            input(stencil_size * num_cell_features + num_global_features - 3) = r_e_scaled;
-            input(stencil_size * num_cell_features + num_global_features - 2) = total_inj_gas;
-            input(stencil_size * num_cell_features + num_global_features - 1) = analytical_PI_scaled;
-        }
-        else if (config_.model_type == "co2_3d_time") {
-                        // "pressure_upper",
-            // "pressure",
-            // "pressure_lower",
-            // "saturation_upper",
-            // "saturation",
-            // "saturation_lower",
-            // "radius",
-            // "total_injected_volume",
-            // "injection_rate",
-            // "current_injection_time",
-            // "previous_shutin_time",
-            // "previous_injection_time",
-            // "older_history_time",
-            // "PI_analytical",
-
-            // Add global features
-            // Note: order needs to be the same as during training
-            const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
-                "R_E",
-                 r_e
-            );
-
-            // Calculate the moving injection and shutin time variables from the
-            // injection schedule and current time.
-            const int time_window {config_.time_window };
-            const int first_injection_length { config_.first_injection_length };
-            const int first_break_length { config_.first_break_length };
-            const int second_injection_length { config_.second_injection_length };
-
-            const auto time_in_days {simulator.time() / 86400 };
-
-            // Result variables
-            double current_injection_time  = 0.0;
-            double previous_shutin_time    = 0.0;
-            double previous_injection_time = 0.0;
-
-            if (time_in_days >= first_injection_length +  first_break_length) {
-                // Phase 3: second injection
-                current_injection_time = time_in_days - t2;
-                previous_shutin_time = first_break_length;
-                previous_injection_time = first_injection_length;
+            // Add global features for the static model.
+            if (config_.model_type == "co2_3d") {
+                // Note: order needs to be the same as during training
+                const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
+                    "R_E",
+                    r_e
+                );
+                const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
+                const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
+                    "TOTAL_INJ_GAS",
+                    simulator.time() * injection_rate_per_second
+                );
+                // analytical Peaceman well index.
+                const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
+                    "ANALYTICAL_PI",
+                    analytical_PI
+                );
+                input(stencil_size * num_cell_features + num_global_features - 3) = r_e_scaled;
+                input(stencil_size * num_cell_features + num_global_features - 2) = total_inj_gas;
+                input(stencil_size * num_cell_features + num_global_features - 1) = analytical_PI_scaled;
             }
-            else if (time_in_days >= first_injection_length) {
-                // Phase 2: first break
-                current_injection_time = 0.0;
-                previous_shutin_time = time_in_days - first_injection_length;
-                previous_injection_time = first_injection_length;
+            // Add global features for the time-dependent model
+            else if (config_.model_type == "co2_3d_time") {
+                // "pressure_upper",
+                // "pressure",
+                // "pressure_lower",
+                // "saturation_upper",
+                // "saturation",
+                // "saturation_lower",
+                // "radius",
+                // "total_injected_volume",
+                // "injection_rate",
+                // "current_injection_time",
+                // "previous_shutin_time",
+                // "previous_injection_time",
+                // "older_history_time",
+                // "PI_analytical",
+
+                // Add global features
+                // Note: order needs to be the same as during training
+                const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
+                    "R_E",
+                    r_e
+                );
+
+                // Calculate the moving injection and shutin time variables from the
+                // injection schedule and current time.
+                const int time_window {config_.time_window };
+                const int first_injection_length { config_.first_injection_length };
+                const int first_break_length { config_.first_break_length };
+                const int second_injection_length { config_.second_injection_length };
+
+                const auto time_in_days {simulator.time() / 86400 };
+
+                // Result variables
+                double current_injection_time  = 0.0;
+                double previous_shutin_time    = 0.0;
+                double previous_injection_time = 0.0;
+
+                if (time_in_days >= first_injection_length +  first_break_length) {
+                    // Phase 3: second injection
+                    current_injection_time = time_in_days - t2;
+                    previous_shutin_time = first_break_length;
+                    previous_injection_time = first_injection_length;
+                }
+                else if (time_in_days >= first_injection_length) {
+                    // Phase 2: first break
+                    current_injection_time = 0.0;
+                    previous_shutin_time = time_in_days - first_injection_length;
+                    previous_injection_time = first_injection_length;
+                }
+                else {
+                    // Phase 1: first injection
+                    current_injection_time = time_in_days;
+                    previous_shutin_time = config_.time_window - time_in_days;
+                    previous_injection_time = 0.0;
+                }
+
+                // Next, calculate total injected volume based on the injection periods.
+                const auto injection_rate_per_day { config_.injection_rate_per_day };
+                const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
+                    "TOTAL_INJ_GAS",
+                    (current_injection_time + previous_injection_time) * injection_rate_per_day
+                );
+                
+                const auto current_injection_volume = config_.template transformAndScaleInput<Value>(
+                    "INJECTION_RATE",
+                    injection_rate_per_day / 86400
+                );
+
+                const auto current_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
+                    "CURRENT_INJECTION_TIME",
+                    current_injection_time
+                );
+                const auto previous_shutin_time_scaled =  config_.template transformAndScaleInput<Value>(
+                    "PREVIOUS_SHUTIN_TIME",
+                    previous_shutin_time
+                );
+                const auto previous_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
+                    "PREVIOUS_INJECTION_TIME",
+                    previous_injection_time
+                );
+                const auto older_history_time = config_.template transformAndScaleInput<Value>(
+                    "OLDER_HISTORY_TIME",
+                    time_window - time_in_days
+                );
+
+                const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
+                    "ANALYTICAL_PI",
+                    analytical_PI
+                );
             }
-            else {
-                // Phase 1: first injection
-                current_injection_time = time_in_days;
-                previous_shutin_time = config_.time_window - time_in_days;
-                previous_injection_time = 0.0;
-            }
-
-            // Next, calculate total injected volume based on the injection periods.
-            const auto injection_rate_per_day { config_.injection_rate_per_day };
-            const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
-                "TOTAL_INJ_GAS",
-                (current_injection_time + previous_injection_time) * injection_rate_per_day
-            );
-            
-            const auto current_injection_volume = config_.template transformAndScaleInput<Value>(
-                "INJECTION_RATE",
-                injection_rate_per_day / 86400
-            );
-
-            const auto current_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
-                "CURRENT_INJECTION_TIME",
-                current_injection_time
-            );
-            const auto previous_shutin_time_scaled =  config_.template transformAndScaleInput<Value>(
-                "PREVIOUS_SHUTIN_TIME",
-                previous_shutin_time
-            );
-            const auto previous_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
-                "PREVIOUS_INJECTION_TIME",
-                previous_injection_time
-            );
-            const auto older_history_time = config_.template transformAndScaleInput<Value>(
-                "OLDER_HISTORY_TIME",
-                time_window - time_in_days
-            );
-
-            const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
-                "ANALYTICAL_PI",
-                 analytical_PI
-            );
-
         }
         return input
     }
