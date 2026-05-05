@@ -13,7 +13,6 @@ ARG OPM_BUILD_JOBS=5
 # Switch to root user to install packages.
 USER root
 
-# Add OPM PPA so supported Dune and prerequisite packages are available on Ubuntu 22.04.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     dirmngr \
@@ -34,10 +33,6 @@ RUN apt-get install -y --no-install-recommends \
     libcjson-dev \
     libblas-dev \
     libboost-all-dev \
-    libdune-common-dev \
-    libdune-geometry-dev \
-    libdune-grid-dev \
-    libdune-istl-dev \
     libfmt-dev \
     liblapack-dev \
     mpi-default-bin \
@@ -47,7 +42,6 @@ RUN apt-get install -y --no-install-recommends \
     pkg-config \
     python3.10 \
     python3.10-dev \
-    python3.10-distutils \
     python3.10-venv \
     python3-pip \
     texlive \
@@ -56,31 +50,42 @@ RUN apt-get install -y --no-install-recommends \
     zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3.10 -m pip install --upgrade pip setuptools wheel
 
-# Create a non-root user to run the reproducibility workflow. Set up the ML_near_well 
-# and pyopmnearwell repositories and install their Python dependencies. 
-RUN useradd -ms /bin/bash diligent_researcher
-USER diligent_researcher
+# Build DUNE  2.9.1 from source.
+ENV DUNE_VERSION=v2.9.1
+ENV DUNE_ROOT=/opt/dune
 
-ENV HOME=/home/diligent_researcher
-WORKDIR $HOME
+WORKDIR ${DUNE_ROOT}
 
-# Copy ML_near_well repository into the image and install Python dependencies.
-COPY . ./ML_near_well
-RUN cd ML_near_well && \
-   python3.10 -m pip install -r requirements.txt
-
-# Clone and install pyopmnearwell.
-RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
-   cd pyopmnearwell && \
-   python3.10 -m pip install -e .
+RUN git clone --branch ${DUNE_VERSION} --depth 1 \
+        https://gitlab.dune-project.org/core/dune-common.git && \
+    git clone --branch ${DUNE_VERSION} --depth 1 \
+        https://gitlab.dune-project.org/core/dune-geometry.git && \
+    git clone --branch ${DUNE_VERSION} --depth 1 \
+        https://gitlab.dune-project.org/core/dune-grid.git && \
+    git clone --branch ${DUNE_VERSION} --depth 1 \
+        https://gitlab.dune-project.org/core/dune-istl.git
 
 
-# Switch back to root user to clone and build OPM from source. The OPM files are
-# slightly modified to include the ML near-well model.
+RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
+        mkdir -p ${DUNE_ROOT}/$mod/build && \
+        cd ${DUNE_ROOT}/$mod/build && \
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=${DUNE_ROOT}/install && \
+        make -j${OPM_BUILD_JOBS} && \
+        make install; \
+    done
 
-USER root
+
+ENV CMAKE_PREFIX_PATH=${DUNE_ROOT}/install:${CMAKE_PREFIX_PATH}
+ENV PKG_CONFIG_PATH=${DUNE_ROOT}/install/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV LD_LIBRARY_PATH=${DUNE_ROOT}/install/lib:${LD_LIBRARY_PATH}
+
+
+
+# Build OPM from source. The OPM files are slightly modified to include the ML
+# near-well model.
 
 ENV OPM_ROOT=/opt/opm_src
 ENV OPM_PATH=$OPM_ROOT
@@ -129,7 +134,25 @@ RUN ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
 # Ensure standard install locations and source-built Flow are on PATH.
 RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> "$HOME/.bashrc"
 
-# Switch back to non-root user and run the reproducibility workflow.
+# Create a non-root user to run the reproducibility workflow. Set up the ML_near_well 
+# and pyopmnearwell repositories and install their Python dependencies. 
+RUN useradd -ms /bin/bash diligent_researcher
 USER diligent_researcher
+
+ENV HOME=/home/diligent_researcher
 WORKDIR $HOME
-CMD ["bash", "-lc", "cd ./ML_near_well && bash runscripts/run.bash"]
+
+RUN python3.10 -m pip install --upgrade pip setuptools wheel
+
+# Copy ML_near_well repository into the image and install Python dependencies.
+COPY . ./ML_near_well
+RUN cd ML_near_well && \
+  python3.10 -m pip install -r requirements.txt
+
+# Clone and install pyopmnearwell.
+RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
+  cd pyopmnearwell && \
+  python3.10 -m pip install -e .
+
+# Run the reproducibility workflow.
+#CMD ["bash", "-lc", "cd ./ML_near_well && bash runscripts/run.bash"]
