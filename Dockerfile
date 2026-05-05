@@ -55,33 +55,33 @@ RUN apt-get install -y --no-install-recommends \
 ENV DUNE_VERSION=v2.9.1
 ENV DUNE_ROOT=/opt/dune
 
-WORKDIR ${DUNE_ROOT}
+WORKDIR $DUNE_ROOT
 
-RUN git clone --branch ${DUNE_VERSION} --depth 1 \
+RUN git clone --branch $DUNE_VERSION --depth 1 \
         https://gitlab.dune-project.org/core/dune-common.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
+    git clone --branch $DUNE_VERSION --depth 1 \
         https://gitlab.dune-project.org/core/dune-geometry.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
+    git clone --branch $DUNE_VERSION --depth 1 \
         https://gitlab.dune-project.org/core/dune-grid.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
+    git clone --branch $DUNE_VERSION --depth 1 \
         https://gitlab.dune-project.org/core/dune-istl.git
 
 
 RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
-        mkdir -p ${DUNE_ROOT}/$mod/build && \
-        cd ${DUNE_ROOT}/$mod/build && \
+        mkdir -p $DUNE_ROOT/$mod/build && \
+        cd $DUNE_ROOT/$mod/build && \
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=${DUNE_ROOT}/install && \
-        make -j${OPM_BUILD_JOBS} && \
-        make install; \
+          -DCMAKE_INSTALL_PREFIX=$DUNE_ROOT/install && \
+        make -j$OPM_BUILD_JOBS && \
+        make install && \
+        cd / && rm -rf $DUNE_ROOT/$mod/build; \
     done
 
 
-ENV CMAKE_PREFIX_PATH=${DUNE_ROOT}/install:${CMAKE_PREFIX_PATH}
-ENV PKG_CONFIG_PATH=${DUNE_ROOT}/install/lib/pkgconfig:${PKG_CONFIG_PATH}
-ENV LD_LIBRARY_PATH=${DUNE_ROOT}/install/lib:${LD_LIBRARY_PATH}
-
+ENV CMAKE_PREFIX_PATH=$DUNE_ROOT/install:${CMAKE_PREFIX_PATH}
+ENV PKG_CONFIG_PATH=$DUNE_ROOT/install/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV LD_LIBRARY_PATH=$DUNE_ROOT/install/lib:${LD_LIBRARY_PATH}
 
 
 # Build OPM from source. The OPM files are slightly modified to include the ML
@@ -99,15 +99,17 @@ RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
     done
 
 # Build OPM components in the correct order.
-RUN mkdir -p "$OPM_ROOT/opm-common/build" && \
-    cd "$OPM_ROOT/opm-common/build" && \
+RUN mkdir -p $OPM_ROOT/opm-common/build && \
+    cd $OPM_ROOT/opm-common/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j$OPM_BUILD_JOBS
+    make -j$OPM_BUILD_JOBS && \
+    cd / && rm -rf $OPM_ROOT/opm-common/build
 
-RUN mkdir -p "$OPM_ROOT/opm-grid/build" && \
-    cd "$OPM_ROOT/opm-grid/build" && \
+RUN mkdir -p $OPM_ROOT/opm-grid/build && \
+    cd $OPM_ROOT/opm-grid/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j$OPM_BUILD_JOBS
+    make -j$OPM_BUILD_JOBS && \
+    cd / && rm -rf $OPM_ROOT/opm-grid/build
 
 # Copy modified OPM ML near-well model files from ML_near_well repository before
 # building the simulators.
@@ -117,22 +119,24 @@ COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp ./opm-simulators/opm
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp ./opm-simulators/opm/simulators/wells/StandardWell.hpp
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp ./opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
 
-RUN mkdir -p "$OPM_ROOT/opm-simulators/build" && \
-    cd "$OPM_ROOT/opm-simulators/build" && \
+RUN mkdir -p $OPM_ROOT/opm-simulators/build && \
+    cd $OPM_ROOT/opm-simulators/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j$OPM_BUILD_JOBS flow_gaswater_dissolution_diffuse
+    make -j$OPM_BUILD_JOBS flow_gaswater_dissolution_diffuse && \
+    cd / && rm -rf $OPM_ROOT/opm-simulators/build
 
-RUN mkdir -p "$OPM_ROOT/opm-upscaling/build" && \
-    cd "$OPM_ROOT/opm-upscaling/build" && \
+RUN mkdir -p $OPM_ROOT/opm-upscaling/build && \
+    cd $OPM_ROOT/opm-upscaling/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j$OPM_BUILD_JOBS
+    make -j$OPM_BUILD_JOBS && \
+    cd / && rm -rf $OPM_ROOT/opm-upscaling/build
 
-RUN ln -sf "$OPM_ROOT/opm-simulators/build/bin/flow" /usr/local/bin/flow && \
-    ln -sf "$OPM_ROOT/opm-common/build/bin/co2brinepvt" /usr/local/bin/co2brinepvt
+RUN ln -sf $OPM_ROOT/opm-simulators/build/bin/flow /usr/local/bin/flow && \
+    ln -sf $OPM_ROOT/opm-common/build/bin/co2brinepvt /usr/local/bin/co2brinepvt
 
 
 # Ensure standard install locations and source-built Flow are on PATH.
-RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> "$HOME/.bashrc"
+RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> $HOME/.bashrc
 
 # Create a non-root user to run the reproducibility workflow. Set up the ML_near_well 
 # and pyopmnearwell repositories and install their Python dependencies. 
