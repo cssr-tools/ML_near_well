@@ -112,10 +112,14 @@ RUN mkdir -p ${OPM_BUILD}/opm-simulators && \
 RUN cmake -S ${OPM_ROOT}/opm-upscaling -B ${OPM_BUILD}/opm-upscaling \
  && cmake --build ${OPM_BUILD}/opm-upscaling -j ${OPM_BUILD_JOBS}
 
+# Remove source files.
+RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
+      rm -rf ${OPM_ROOT}/${repo}; \
+    done
 
 # Ensure standard install locations and source-built OPM Flow are on PATH.
 ENV LD_LIBRARY_PATH=/opt/dune/install/lib
-ENV PATH=/usr/local/bin:/usr/bin
+ENV PATH="/usr/local/bin:${PATH}"
 
 RUN ln -s /opt/opm_build/opm-simulators/bin/flow /usr/local/bin/flow \
  && ln -s /opt/opm_build/opm-common/bin/co2brinepvt /usr/local/bin/co2brinepvt
@@ -131,7 +135,7 @@ RUN python3.10 -m pip install --upgrade pip setuptools wheel
 # Copy ML_near_well repository into the image and install Python dependencies.
 COPY --chown=diligent_researcher:diligent_researcher . ./ML_near_well
 RUN cd ML_near_well && \
-    python3.10 -m pip install --no-cache-dir -r requirements_full.txt
+    python3.10 -m pip install --no-cache-dir -r requirements.txt
 
 # Clone and install pyopmnearwell.
 RUN git clone --branch 2024-08_ML_near_well_article \
