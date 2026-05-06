@@ -1,162 +1,165 @@
-FROM ubuntu:22.04
-LABEL title="ml_near_well"
-LABEL description="Docker image to reproduce results in 'A Machine-Learned Near-Well Model in OPM Flow'"
-LABEL version="0.1"
-LABEL maintainer="Peter von Schultzendorff"
-LABEL email="peter.schultzendorff@uib.no"
+# ============================================================
+# Stage 1: Build DUNE + OPM from source
+# ============================================================
+FROM ubuntu:22.04 AS builder
 
 # Suppress interactive dialogue during package installation.
 ARG DEBIAN_FRONTEND=noninteractive
 ARG OPM_REF=release/2025.10
 ARG OPM_BUILD_JOBS=5
+ARG DUNE_VERSION=v2.9.1
 
-# Switch to root user to install packages.
-USER root
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    dirmngr \
-    gnupg \
-    software-properties-common && \
-    add-apt-repository -y ppa:opm/ppa && \
-    apt-get update
+LABEL org.opencontainers.image.title="ml_near_well (builder)"
+LABEL org.opencontainers.image.authors="Peter von Schultzendorff <peter.schultzendorff@uib.no>"
 
 # Install build and runtime dependencies for OPM source builds and Python workflows.
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
-    cm-super-minimal \
     cmake \
-    dvipng \
     gfortran \
     git \
-    libcjson-dev \
+    pkg-config \
     libblas-dev \
-    libboost-all-dev \
-    libfmt-dev \
     liblapack-dev \
-    mpi-default-bin \
-    mpi-default-dev \
+    libboost-all-dev \
     libsuitesparse-dev \
     libtrilinos-zoltan-dev \
-    pkg-config \
+    libfmt-dev \
+    libcjson-dev \
+    mpi-default-bin \
+    mpi-default-dev \
+    zlib1g-dev \
+    dirmngr \
+    gnupg \
+    software-properties-common \
+ && add-apt-repository -y ppa:opm/ppa \
+ && apt-get update \
+ && rm -rf /var/lib/apt/lists/*
+
+# Build DUNE 2.9.1 from source.
+ENV DUNE_ROOT=/opt/dune
+ENV DUNE_INSTALL=${DUNE_ROOT}/install
+
+WORKDIR ${DUNE_ROOT}
+
+RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
+      git clone --branch ${DUNE_VERSION} --depth 1 \
+        https://gitlab.dune-project.org/core/$mod.git; \
+    done
+
+RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
+      cmake -S ${mod} -B ${mod}/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${DUNE_INSTALL} && \
+      cmake --build ${mod}/build -j ${OPM_BUILD_JOBS} && \
+      cmake --install ${mod}/build && \
+      rm -rf ${mod}/build; \
+    done
+
+ENV CMAKE_PREFIX_PATH=${DUNE_INSTALL}
+ENV PKG_CONFIG_PATH=${DUNE_INSTALL}/lib/pkgconfig
+ENV LD_LIBRARY_PATH=${DUNE_INSTALL}/lib
+
+# Build OPM from source.
+ENV OPM_ROOT=/opt/opm_src
+ENV OPM_BUILD=/opt/opm_build
+
+WORKDIR ${OPM_ROOT}
+
+RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
+      git clone --branch ${OPM_REF} --depth 1 \
+      https://github.com/OPM/${repo}.git; \
+    done
+
+# Modify OPM source files to include ML near-well model.
+COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp \
+     ${OPM_ROOT}/opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
+COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp \
+     ${OPM_ROOT}/opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
+COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp \
+     ${OPM_ROOT}/opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
+COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp \
+     ${OPM_ROOT}/opm-simulators/opm/simulators/wells/StandardWell.hpp
+COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp \
+     ${OPM_ROOT}/opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
+
+# ---- Build OPM components ----------------------------------------------------
+RUN cmake -S ${OPM_ROOT}/opm-common -B ${OPM_BUILD}/opm-common \
+ && cmake --build ${OPM_BUILD}/opm-common -j ${OPM_BUILD_JOBS}
+
+RUN cmake -S ${OPM_ROOT}/opm-grid -B ${OPM_BUILD}/opm-grid \
+ && cmake --build ${OPM_BUILD}/opm-grid -j ${OPM_BUILD_JOBS}
+
+RUN mkdir -p ${OPM_BUILD}/opm-simulators && \
+ cd ${OPM_BUILD}/opm-simulators && \
+ cmake -DCMAKE_BUILD_TYPE=Release ${OPM_ROOT}/opm-simulators && \
+ make -j ${OPM_BUILD_JOBS} flow_gaswater_dissolution_diffuse
+
+RUN cmake -S ${OPM_ROOT}/opm-upscaling -B ${OPM_BUILD}/opm-upscaling \
+ && cmake --build ${OPM_BUILD}/opm-upscaling -j ${OPM_BUILD_JOBS}
+
+# ============================================================
+# Stage 2: Minimal runtime image
+# ============================================================
+FROM ubuntu:22.04 AS runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+LABEL org.opencontainers.image.title="ml_near_well"
+LABEL org.opencontainers.image.description="Reproducibility image for ML near-well OPM Flow experiments"
+LABEL org.opencontainers.image.version="0.1"
+LABEL org.opencontainers.image.authors="Peter von Schultzendorff <peter.schultzendorff@uib.no>"
+
+# Install runtime dependencies only.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libblas-dev \
+    liblapack-dev \
+    libboost-all-dev \
+    libsuitesparse-dev \
+    libfmt8 \
+    libcjson1 \
+    mpi-default-bin \
     python3.10 \
-    python3.10-dev \
     python3.10-venv \
     python3-pip \
     texlive \
     texlive-fonts-recommended \
     texlive-latex-extra \
-    zlib1g-dev && \
-    rm -rf /var/lib/apt/lists/*
+    dvipng \
+    cm-super-minimal \
+ && rm -rf /var/lib/apt/lists/*
 
+# Copy required built artifacts.
+COPY --from=builder /opt/dune/install /opt/dune/install
+COPY --from=builder /opt/opm_build /opt/opm_build
 
-# Build DUNE  2.9.1 from source.
-ENV DUNE_VERSION=v2.9.1
-ENV DUNE_ROOT=/opt/dune
+# Ensure standard install locations and source-built OPM Flow are on PATH.
+ENV LD_LIBRARY_PATH=/opt/dune/install/lib
+ENV PATH=/usr/local/bin:/usr/bin
 
-WORKDIR ${DUNE_ROOT}
+RUN ln -s /opt/opm_build/opm-simulators/bin/flow /usr/local/bin/flow \
+ && ln -s /opt/opm_build/opm-common/bin/co2brinepvt /usr/local/bin/co2brinepvt
 
-RUN git clone --branch ${DUNE_VERSION} --depth 1 \
-        https://gitlab.dune-project.org/core/dune-common.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
-        https://gitlab.dune-project.org/core/dune-geometry.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
-        https://gitlab.dune-project.org/core/dune-grid.git && \
-    git clone --branch ${DUNE_VERSION} --depth 1 \
-        https://gitlab.dune-project.org/core/dune-istl.git
-
-
-RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
-        mkdir -p ${DUNE_ROOT}/$mod/build && \
-        cd ${DUNE_ROOT}/$mod/build && \
-        cmake .. \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=${DUNE_ROOT}/install && \
-        make -j${OPM_BUILD_JOBS} && \
-        make install && \
-        cd / && rm -rf ${DUNE_ROOT}/$mod/build; \
-    done
-
-
-ENV CMAKE_PREFIX_PATH=${DUNE_ROOT}/install:${CMAKE_PREFIX_PATH}
-ENV PKG_CONFIG_PATH=${DUNE_ROOT}/install/lib/pkgconfig:${PKG_CONFIG_PATH}
-ENV LD_LIBRARY_PATH=${DUNE_ROOT}/install/lib:${LD_LIBRARY_PATH}
-
-
-# Build OPM from source. The OPM files are slightly modified to include the ML
-# near-well model.
-
-ENV OPM_ROOT=/opt/opm_src
-ENV OPM_PATH=${OPM_ROOT}
-ENV FLOW_PATH=${OPM_ROOT}/opm-simulators/build/bin/flow
-
-# Clone OPM following the documented sibling-repository layout.
-WORKDIR ${OPM_ROOT}
-
-RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
-        git clone --branch "$OPM_REF" --depth 1 "https://github.com/OPM/${repo}.git"; \
-    done
-
-# Build OPM components in the correct order.
-RUN mkdir -p ${OPM_ROOT}/opm-common/build && \
-    cd ${OPM_ROOT}/opm-common/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j${OPM_BUILD_JOBS} && \
-    cd / && rm -rf ${OPM_ROOT}/opm-common/build
-
-RUN mkdir -p ${OPM_ROOT}/opm-grid/build && \
-    cd ${OPM_ROOT}/opm-grid/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j${OPM_BUILD_JOBS} && \
-    cd / && rm -rf ${OPM_ROOT}/opm-grid/build
-
-# Copy modified OPM ML near-well model files from ML_near_well repository before
-# building the simulators.
-COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
-COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp ./opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp ./opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp ./opm-simulators/opm/simulators/wells/StandardWell.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp ./opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
-
-RUN mkdir -p ${OPM_ROOT}/opm-simulators/build && \
-    cd ${OPM_ROOT}/opm-simulators/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j${OPM_BUILD_JOBS} flow_gaswater_dissolution_diffuse && \
-    cd / && rm -rf ${OPM_ROOT}/opm-simulators/build
-
-RUN mkdir -p ${OPM_ROOT}/opm-upscaling/build && \
-    cd ${OPM_ROOT}/opm-upscaling/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j${OPM_BUILD_JOBS} && \
-    cd / && rm -rf ${OPM_ROOT}/opm-upscaling/build
-
-RUN ln -sf ${OPM_ROOT}/opm-simulators/build/bin/flow /usr/local/bin/flow && \
-    ln -sf ${OPM_ROOT}/opm-common/build/bin/co2brinepvt /usr/local/bin/co2brinepvt
-
-
-# Ensure standard install locations and source-built Flow are on PATH.
-RUN echo 'export PATH="/usr/local/bin:/usr/bin:$PATH"' >> ${HOME}/.bashrc
-
-# Create a non-root user to run the reproducibility workflow. Set up the ML_near_well 
-# and pyopmnearwell repositories and install their Python dependencies. 
+# Create a non-root user to run the reproducibility workflow.
 RUN useradd -ms /bin/bash diligent_researcher
 USER diligent_researcher
-
 ENV HOME=/home/diligent_researcher
 WORKDIR ${HOME}
 
 RUN python3.10 -m pip install --upgrade pip setuptools wheel
 
 # Copy ML_near_well repository into the image and install Python dependencies.
-COPY . ./ML_near_well
+COPY --chown=diligent_researcher:diligent_researcher . ./ML_near_well
 RUN cd ML_near_well && \
-  python3.10 -m pip install -r requirements.txt
+    python3.10 -m pip install --no-cache-dir -r requirements_full.txt
 
 # Clone and install pyopmnearwell.
-RUN git clone --branch 2024-08_ML_near_well_article https://github.com/cssr-tools/pyopmnearwell && \
-  cd pyopmnearwell && \
-  python3.10 -m pip install -e .
+RUN git clone --branch 2024-08_ML_near_well_article \
+      https://github.com/cssr-tools/pyopmnearwell && \
+    cd pyopmnearwell && \
+    python3.10 -m pip install --no-cache-dir -e .
 
 # Run the reproducibility workflow.
 #CMD ["bash", "-lc", "cd ./ML_near_well && bash runscripts/run.bash"]
