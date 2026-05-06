@@ -1,16 +1,17 @@
-# ============================================================
-# Stage 1: Build DUNE + OPM from source
-# ============================================================
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:22.04
+LABEL org.opencontainers.image.title="ml_near_well"
+LABEL org.opencontainers.image.description="Reproducibility image for ML near-well OPM Flow experiments"
+LABEL org.opencontainers.image.version="0.1"
+LABEL org.opencontainers.image.authors="Peter von Schultzendorff <peter.schultzendorff@uib.no>"
 
 # Suppress interactive dialogue during package installation.
 ARG DEBIAN_FRONTEND=noninteractive
 ARG OPM_REF=release/2025.10
-ARG OPM_BUILD_JOBS=5
+ARG OPM_BUILD_JOBS=8
 ARG DUNE_VERSION=v2.9.1
 
-LABEL org.opencontainers.image.title="ml_near_well (builder)"
-LABEL org.opencontainers.image.authors="Peter von Schultzendorff <peter.schultzendorff@uib.no>"
+# Switch to root user to install packages.
+USER root
 
 # Install build and runtime dependencies for OPM source builds and Python workflows.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,8 +28,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtrilinos-zoltan-dev \
     libfmt-dev \
     libcjson-dev \
+    libfmt8 \
+    libcjson1 \
     mpi-default-bin \
     mpi-default-dev \
+    python3.10 \
+    python3.10-venv \
+    python3-pip \
+    texlive \
+    texlive-fonts-recommended \
+    texlive-latex-extra \
+    dvipng \
+    cm-super-minimal \
     zlib1g-dev \
     dirmngr \
     gnupg \
@@ -37,7 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
-# Build DUNE 2.9.1 from source.
+# Build DUNE from source.
 ENV DUNE_ROOT=/opt/dune
 ENV DUNE_INSTALL=${DUNE_ROOT}/install
 
@@ -57,9 +68,11 @@ RUN for mod in dune-common dune-geometry dune-grid dune-istl; do \
       rm -rf ${mod}/build; \
     done
 
-ENV CMAKE_PREFIX_PATH=${DUNE_INSTALL}
-ENV PKG_CONFIG_PATH=${DUNE_INSTALL}/lib/pkgconfig
-ENV LD_LIBRARY_PATH=${DUNE_INSTALL}/lib
+
+ENV CMAKE_PREFIX_PATH=${DUNE_ROOT}/install:${CMAKE_PREFIX_PATH}
+ENV PKG_CONFIG_PATH=${DUNE_ROOT}/install/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV LD_LIBRARY_PATH=${DUNE_ROOT}/install/lib:${LD_LIBRARY_PATH}
+
 
 # Build OPM from source.
 ENV OPM_ROOT=/opt/opm_src
@@ -84,7 +97,7 @@ COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp \
 COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
 
-# ---- Build OPM components ----------------------------------------------------
+# Build OPM components.
 RUN cmake -S ${OPM_ROOT}/opm-common -B ${OPM_BUILD}/opm-common \
  && cmake --build ${OPM_BUILD}/opm-common -j ${OPM_BUILD_JOBS}
 
@@ -99,41 +112,6 @@ RUN mkdir -p ${OPM_BUILD}/opm-simulators && \
 RUN cmake -S ${OPM_ROOT}/opm-upscaling -B ${OPM_BUILD}/opm-upscaling \
  && cmake --build ${OPM_BUILD}/opm-upscaling -j ${OPM_BUILD_JOBS}
 
-# ============================================================
-# Stage 2: Minimal runtime image
-# ============================================================
-FROM ubuntu:22.04 AS runtime
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-LABEL org.opencontainers.image.title="ml_near_well"
-LABEL org.opencontainers.image.description="Reproducibility image for ML near-well OPM Flow experiments"
-LABEL org.opencontainers.image.version="0.1"
-LABEL org.opencontainers.image.authors="Peter von Schultzendorff <peter.schultzendorff@uib.no>"
-
-# Install runtime dependencies only.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    libblas-dev \
-    liblapack-dev \
-    libboost-all-dev \
-    libsuitesparse-dev \
-    libfmt8 \
-    libcjson1 \
-    mpi-default-bin \
-    python3.10 \
-    python3.10-venv \
-    python3-pip \
-    texlive \
-    texlive-fonts-recommended \
-    texlive-latex-extra \
-    dvipng \
-    cm-super-minimal \
- && rm -rf /var/lib/apt/lists/*
-
-# Copy required built artifacts.
-COPY --from=builder /opt/dune/install /opt/dune/install
-COPY --from=builder /opt/opm_build /opt/opm_build
 
 # Ensure standard install locations and source-built OPM Flow are on PATH.
 ENV LD_LIBRARY_PATH=/opt/dune/install/lib
