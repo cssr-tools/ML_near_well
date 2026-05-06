@@ -85,17 +85,18 @@ namespace Opm
         Base::init(depth_arg, gravity_arg, B_avg, changed_to_open_this_step);
         this->StdWellEval::init(this->perf_depth_, depth_arg, Base::has_polymermw);
 
-        // Load ML near-well model config.
-        if (!configLoaded_) {
-            std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
-            PropertyTree pt(config_file);
-            for (const auto& model_key : pt.get_child_keys()) {
-                config_ = MLNearWellConfig(pt.get_child(model_key));
-                config_.validateConfig();
-            }
-            configLoaded_ = true;
-        }
+        
+        // Check if ML Near-Well flag activated 
+        if (!Parameters::Get<Parameters::UseMLNearWell>())
+            return;
 
+        // Load ML near-well model config.
+        std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
+        PropertyTree pt(config_file);
+        for (const auto& model_key : pt.get_child_keys()) {
+            config_ = MLNearWellConfig(pt.get_child(model_key));
+            config_.validateConfig();
+        }
     }
 
 

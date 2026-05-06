@@ -33,7 +33,7 @@ runspecs_ensemble: dict[str, Any] = {
         "INIT_TEMPERATURE": 40,  # unit: [°C]
         "POROSITY": 0.35,  # unit: [-]
         "SURFACE_DENSITY": SURFACE_DENSITY,  # unit: [kg/m^3]
-        "INJECTION_RATE": 6e1 * SURFACE_DENSITY,  # unit: [kg/d]
+        "INJECTION_RATE": 6e2 * SURFACE_DENSITY,  # unit: [kg/d]
         "INJECTION_TIME": 10,  # unit: [d]
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
         "NUM_XCELLS": 50,
@@ -65,13 +65,13 @@ runspecs_integration_1: dict[str, Any] = {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
         "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
         "MLNEARWELLCONFIGFILE": [
-            str(dirname / "nn" / "peaceman_config.json"),
-            str(dirname / "nn" / "ml_config.json"),
-            str(dirname / "nn" / "ml_config.json"),
-            str(dirname / "nn" / "ml_config.json"),
-            str(dirname / "nn" / "peaceman_config.json"),
-            str(dirname / "nn" / "peaceman_config.json"),
-            str(dirname / "nn" / "peaceman_config.json"),
+            "",
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            "",
+            "",
+            "",
         ],
         "RUN_NAME": [
             "5x5m_Peaceman",
@@ -82,13 +82,14 @@ runspecs_integration_1: dict[str, Any] = {
             "52x52m_Peaceman",
             "27x27m_Peaceman",
         ],
-        "USEMLNEARWELL": ["",
-        "--UseMLNearWell=true",
-        "--UseMLNearWell=true", 
-        "--UseMLNearWell=true",
-        "",
-        "",
-        ""
+        "USEMLNEARWELL": [
+            "",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "",
+            "",
+            "",
         ],
     },
     "constants": {

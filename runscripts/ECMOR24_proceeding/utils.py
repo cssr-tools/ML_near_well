@@ -565,7 +565,7 @@ def plot_member(
         model_output: np.ndarray = nn.scale_and_evaluate(
             model,
             model_output,
-            nn_dirname / "scalings.csv",  # type: ignore
+            nn_dirname / "MLNearWellConfig.json",  # type: ignore
         )
 
         # Reshape back into original form

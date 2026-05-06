@@ -183,10 +183,10 @@ if False:
 
 # Integrate into OPM.
 if True:
-    integration.recompile_flow(
-        runspecs_integration_1["constants"]["OPM"],
-        dirname,
-    )
+    # integration.recompile_flow(
+    #     runspecs_integration_1["constants"]["OPM"],
+    #     dirname,
+    # )
     # for integration_dir, runspecs_integration in zip(
     #     [integration_dir_1, integration_dir_2, integration_dir_3],
     #     [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
@@ -232,12 +232,3 @@ if False:
             summary_files, labels, colors, linestyles, integration_dir / "bhp.svg"
         )
         bhp_error(summary_files, integration_dir / "bhp_diffs.csv", 0)
-
-
-# Restore default OPM StandardWell files after integration workflow finishes.
-if True:
-    integration.recompile_flow(
-        runspecs_integration_1["constants"]["OPM"],
-        dirname,
-        reset=True,
-    )

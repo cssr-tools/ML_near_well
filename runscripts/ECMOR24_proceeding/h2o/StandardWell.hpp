@@ -467,7 +467,6 @@ namespace Opm
         Scalar cachedRefDensity{0};
 
         MLNearWellConfig config_;
-        bool configLoaded_;
     };
 
 }

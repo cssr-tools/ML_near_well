@@ -121,7 +121,7 @@ RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
 ENV LD_LIBRARY_PATH=/opt/dune/install/lib
 ENV PATH="/usr/local/bin:${PATH}"
 
-RUN ln -s /opt/opm_build/opm-simulators/bin/flow /usr/local/bin/flow \
+RUN ln -s /opt/opm_build/opm-simulators/bin/flow_gaswater_dissolution_diffuse /usr/local/bin/flow \
  && ln -s /opt/opm_build/opm-common/bin/co2brinepvt /usr/local/bin/co2brinepvt
 
 # Create a non-root user to run the reproducibility workflow.
