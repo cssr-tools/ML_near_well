@@ -51,7 +51,7 @@ for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]
 ANGLE: float = math.pi / 3
 
 # Run ensemble and extract data.
-if False:
+if True:
     data: np.ndarray = full_ensemble(
         runspecs_ensemble,
         ensemble_dir,
@@ -80,7 +80,7 @@ if False:
 
 
 # Create dataset.
-if False:
+if True:
     # Truncate the outermost cell already here to avoid getting nan in the WIs.
     data = np.load(str(ensemble_dir / "data.npy"))[..., :-1, :]
     # Get radii and transform from triangle grid to cake grid.
@@ -139,7 +139,7 @@ if False:
         )
 
 # Tune and train model.
-if False:
+if True:
     tune_and_train(
         trainspecs,
         data_dir,
@@ -152,7 +152,7 @@ if False:
     )
 
 # Do some plotting of results and sensitivity analysis.
-if False:
+if True:
     model: keras.Model = keras.models.load_model(nn_dir / "bestmodel.keras")  # type: ignore
     for i in range(0, runspecs_ensemble["npoints"], 30):
         # Plot NN WI and data WI vs radius.
@@ -183,16 +183,9 @@ if False:
 
 # Integrate into OPM.
 if True:
-    # integration.recompile_flow(
-    #     runspecs_integration_1["constants"]["OPM"],
-    #     dirname,
-    # )
-    # for integration_dir, runspecs_integration in zip(
-    #     [integration_dir_1, integration_dir_2, integration_dir_3],
-    #     [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
-    # ):
     for integration_dir, runspecs_integration in zip(
-        [integration_dir_1], [runspecs_integration_1]
+        [integration_dir_1, integration_dir_2, integration_dir_3],
+        [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
     ):
         integration.run_integration(
             runspecs_integration,

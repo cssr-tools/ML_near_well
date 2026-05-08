@@ -216,13 +216,6 @@ if True:
 
 # Integrate into OPM.
 if True:
-    integration.recompile_flow(
-        nn_dir / "scalings.csv",
-        runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
-        dirname / "standardwell_impl_3d.mako",
-        dirname / "standardwell.hpp",
-        local_feature_names=["pressure", "saturation", "permeability"],
-    )
     for integration_dir, runspecs_integration in zip(
         [
             integration_3d_dir_1,
