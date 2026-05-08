@@ -2755,25 +2755,24 @@ namespace Opm
 
         // Collect and scale input variables common across all models.
         // well block pressure - unit [Pa]
-        const auto p = config_.template transformAndScaleInput<Value>("PRESSURE", pressure);
-
+        const auto p = config_.template transformAndScaleInput<Value>("pressure", pressure);
 
         if (config_.model_type == "h2o_2d") {
             // permeability - has unit [m^2] both inside OPM and as the input for the
             // neural network
             const auto& connection = Base::well_ecl_.getConnections()[perf];
             const auto k = config_.template transformAndScaleInput<Value>(
-                "PERMEABILITY",
+                "permeability",
                  Value(connection.Kh() / connection.connectionLength())
             );
             // cell height - unit [m]
             const auto h = config_.template transformAndScaleInput<Value>(
-                "HEIGHT",
+                "height",
                  Value(connection.connectionLength())
             );
             // equivalent well radius - unit [m]
             const auto re = config_.template transformAndScaleInput<Value>(
-                "RADIUS",
+                "radius",
                  Value(connection.r0())
             );
 
@@ -2782,13 +2781,13 @@ namespace Opm
         else if (config_.model_type == "co2_2D") {
                 // geometrical part of WI
                 const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
-                    "ANALYTICAL_PI",
+                    "analytical_PI",
                      analytical_PI
                 );
                 // total injected gas - unit [m^3]
                 const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
                 const auto tot_inj_gas = config_.template transformAndScaleInput<Value>(
-                    "TOT_INJ_GAS",
+                    "tot_inj_gas",
                     simulator.time() * injection_rate_per_second
                 );
 
@@ -2797,27 +2796,38 @@ namespace Opm
 
         // Static and time-dependent CO2 3D model.
         else if (config_.model_type.rfind("co2_3d",0) == 0) {
-            std::string cell_feature_names[${len(cell_feature_names)}];
+            // Identify local features based on the config and model candidates.
+            std::string local_feature_candidates[] = {"pressure", "saturation", "permeability"};
+            std::string local_feature_names[] = {};
 
-            &for cell_feature_name in cell_feature_names:
-            cell_feature_names[${loop.index}] = "${cell_feature_name}";
-            % endfor
+            for (feature_name : config_.input_features) {
+                for (const auto& candidate : local_feature_candidates) {
+                    if (feature_name == candidate) {
+                        local_feature_names.push_back(feature_name);
+                        break;
+                    }
+                }
+            }
 
-            // Radius, total injected gas and analytical PI are the global features
-            const auto r_e = Base::well_ecl_.getConnections()[0].r0();
-            const auto injection_rate_per_second { config_.injection_rate_per_day / 86000 };
-
+            int num_local_features = local_feature_names.size();
+    
             // Get values for local features.
-            std::array<std::array<Value, config_.stencil_size>, config_.num_local_features> local_features;
+            std::array<std::array<Value, config_.stencil_size>, num_local_features> local_features;
 
             for (int i = 0; i < config_.stencil_size; ++i) {
                 // Perforation index
                 int perf_i = perf - 1 + i;
 
+                // First treat the cases where the perforation index is out of bound,
+                // i.e., the stencil goes beyond the upper or lower boundary of the
+                // well. In this case, we will apply padding. The padding types are
+                // consistent with the padding types specified in
+                // co2_3d.runspecs.trainspecs.
+
                 // Upper boundary: Set padding
                 if (perf_i < 0 ) {
                     for (int j = 0; j < config_.num_local_features; ++j) {
-                        std::string feature_name = cell_feature_names[j];
+                        std::string feature_name = config_.toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[perf_i + 1];
@@ -2833,8 +2843,8 @@ namespace Opm
                     }
                 // Lower boundary: Set padding
                 else if (perf_i >= this->number_of_perforations_) {
-                    for (int j = 0; j < num_cell_features; ++j) {
-                        std::string feature_name = cell_feature_names[j];
+                    for (int j = 0; j < num_local_features; ++j) {
+                        std::string feature_name = local_feature_names[j];
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[perf_i - 1];
@@ -2849,14 +2859,15 @@ namespace Opm
                         }
                     }
 
-                // Inside the domain
+                // Next treat the normal cases where the perforation index is within the
+                // boundary.
                 else {
                     const int cell_idx = this->well_cells_[perf_i];
                     const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                     auto fs = intQuants.fluidState();
 
-                    for (int j = 0; j < num_cell_features; ++j) {
-                        std::string feature_name = cell_feature_names[j];
+                    for (int j = 0; j < num_local_features; ++j) {
+                        std::string feature_name = local_feature_names[j];
                         if (feature_name == "pressure") {
                             features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
@@ -2874,63 +2885,57 @@ namespace Opm
                     }
                 }
 
-            // Scale local features and order them as input tensor
-            // Note: order needs to be the same as during training
-            for (int j = 0; j < num_cell_features; ++j) {
+            // Scale local features and reorder them into the input tensor.
+            // Note: The order needs to be the same as during training.
+            for (int j = 0; j < num_local_features; ++j) {
                 for (int i = 0; i < stencil_size; ++i) {
-                    features[i][j] = config_.template transformAndScaleInput<Value>(features[i][j]);
+                    // We assume the stencil size is odd and the features are ordered
+                    // based on the distance to the target perforation. For example, for
+                    // a stencil size of 5, the order will be: +2, +1, 0, -1, -2. Again,
+                    // this is consistent with the naming in co2_3d.runspecs.trainspecs.
+                    int offset = i - (config_.stencil_size / 2);
+                    std::string full_feature_name = local_feature_names[j] + (offset >= 0 ? "+" : "-") + std::to_string(offset);
+        
+                    features[i][j] = config_.template transformAndScaleInput<Value>(
+                        full_feature_name,
+                        features[i][j]
+                    );
                     input(j * stencil_size + i) = features[i][j];
+    
                     if (config_.debug) {
-                        std::cout << "feature_" << j << " cell_" << i << " scaled: " << features[i][j] << std::endl;
+                        std::cout << full_feature_name << " scaled: " << features[i][j] << std::endl;
                     }
                 }
-            }
 
-            // Add global features for the static model.
-            if (config_.model_type == "co2_3d") {
-                // Note: order needs to be the same as during training
+                // Add shared global feature for the static and time-dependent model.
+    
+                // equivalent well radius - unit [m]
                 const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
-                    "R_E",
+                    "r_e",
                     r_e
                 );
+                input(stencil_size * num_local_features) = r_e_scaled;
+            }
+
+            // Add global features specific  to the static model.
+            if (config_.model_type == "co2_3d") {
+                // total injected gas - unit [m^3]
                 const auto injection_rate_per_second { config_.injection_rate_per_day / 86400 };
-                const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
-                    "TOTAL_INJ_GAS",
+                const auto tot_inj_gas =  config_.template transformAndScaleInput<Value>(
+                    "tot_inj_gas",
                     simulator.time() * injection_rate_per_second
                 );
-                // analytical Peaceman well index.
+                // analytical Peaceman well index
                 const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
-                    "ANALYTICAL_PI",
+                    "analytical_PI",
                     analytical_PI
                 );
-                input(stencil_size * num_cell_features + num_global_features - 3) = r_e_scaled;
-                input(stencil_size * num_cell_features + num_global_features - 2) = total_inj_gas;
-                input(stencil_size * num_cell_features + num_global_features - 1) = analytical_PI_scaled;
+                input(stencil_size * num_local_features + 1) = tot_inj_gas;
+                input(stencil_size * num_local_features + 2) = analytical_PI_scaled;
             }
-            // Add global features for the time-dependent model
+
+            // Add global features specific (at least in position) to the static model.
             else if (config_.model_type == "co2_3d_time") {
-                // "pressure_upper",
-                // "pressure",
-                // "pressure_lower",
-                // "saturation_upper",
-                // "saturation",
-                // "saturation_lower",
-                // "radius",
-                // "total_injected_volume",
-                // "injection_rate",
-                // "current_injection_time",
-                // "previous_shutin_time",
-                // "previous_injection_time",
-                // "older_history_time",
-                // "PI_analytical",
-
-                // Add global features
-                // Note: order needs to be the same as during training
-                const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
-                    "R_E",
-                    r_e
-                );
-
                 // Calculate the moving injection and shutin time variables from the
                 // injection schedule and current time.
                 const int time_window {config_.time_window };
@@ -2964,39 +2969,50 @@ namespace Opm
                     previous_injection_time = 0.0;
                 }
 
-                // Next, calculate total injected volume based on the injection periods.
-                const auto injection_rate_per_day { config_.injection_rate_per_day };
-                const auto total_inj_gas =  config_.template transformAndScaleInput<Value>(
-                    "TOTAL_INJ_GAS",
-                    (current_injection_time + previous_injection_time) * injection_rate_per_day
-                );
+                const auto injection_rate_per_day { config_.injection_rate_per_day };   
                 
-                const auto current_injection_volume = config_.template transformAndScaleInput<Value>(
-                    "INJECTION_RATE",
+                // Scale and transform the global features and add to the input tensor.
+                const auto injection_rate = config_.template transformAndScaleInput<Value>(
+                    "injection_rate",
                     injection_rate_per_day / 86400
                 );
 
+                // Calculate total injected volume based on the injection periods.
+                const auto tot_inj_gas =  config_.template transformAndScaleInput<Value>(
+                    "tot_inj_gas",
+                    (current_injection_time + previous_injection_time) * injection_rate_per_day
+                );
+                
                 const auto current_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
-                    "CURRENT_INJECTION_TIME",
+                    "current_injection_time",
                     current_injection_time
                 );
                 const auto previous_shutin_time_scaled =  config_.template transformAndScaleInput<Value>(
-                    "PREVIOUS_SHUTIN_TIME",
+                    "previous_shutin_time",
                     previous_shutin_time
                 );
                 const auto previous_injection_time_scaled =  config_.template transformAndScaleInput<Value>(
-                    "PREVIOUS_INJECTION_TIME",
+                    "previous_injection_time",
                     previous_injection_time
                 );
                 const auto older_history_time = config_.template transformAndScaleInput<Value>(
-                    "OLDER_HISTORY_TIME",
+                    "older_history_time",
                     time_window - time_in_days
                 );
 
                 const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
-                    "ANALYTICAL_PI",
+                    "analytical_PI",
                     analytical_PI
                 );
+
+                input(stencil_size * num_local_features + 1) = tot_inj_gas;
+                input(stencil_size * num_local_features + 2) = injection_rate;
+                input(stencil_size * num_local_features + 3) = current_injection_time_scaled;
+                input(stencil_size * num_local_features + 4) = previous_shutin_time_scaled;
+                input(stencil_size * num_local_features + 5) = previous_injection_time_scaled;
+                input(stencil_size * num_local_features + 6) = older_history_time;
+                input(stencil_size * num_local_features + 7) = analytical_PI_scaled;
+
             }
         }
         return input

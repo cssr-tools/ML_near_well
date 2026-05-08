@@ -86,15 +86,15 @@ RUN for repo in opm-common opm-grid opm-simulators opm-upscaling; do \
     done
 
 # Modify OPM source files to include ML near-well model.
-COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.cpp \
+COPY runscripts/ECMOR24_proceeding/FlowProblemParameters.cpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/flow/FlowProblemParameters.cpp
-COPY runscripts/ECMOR24_proceeding/h2o/FlowProblemParameters.hpp \
+COPY runscripts/ECMOR24_proceeding/FlowProblemParameters.hpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/flow/FlowProblemParameters.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/MLNearWellConfig.hpp \
+COPY runscripts/ECMOR24_proceeding/MLNearWellConfig.hpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/wells/MLNearWellConfig.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/StandardWell.hpp \
+COPY runscripts/ECMOR24_proceeding/StandardWell.hpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/wells/StandardWell.hpp
-COPY runscripts/ECMOR24_proceeding/h2o/StandardWell_impl.hpp \
+COPY runscripts/ECMOR24_proceeding/StandardWell_impl.hpp \
      ${OPM_ROOT}/opm-simulators/opm/simulators/wells/StandardWell_impl.hpp
 
 # Build OPM components.

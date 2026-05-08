@@ -39,8 +39,6 @@ COMP_INVERSE: dict[str, dict[str, str]] = {
     "layer": {"radius": "time step", "time": "radius"},
 }
 
-FEATURE_TO_INDEX: dict[str, int] = {}
-
 
 def full_ensemble(
     runspecs: dict[str, Any],

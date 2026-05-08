@@ -218,7 +218,7 @@ class CO2_2D_Upscaler(BaseUpscaler):
                     config = json.load(f)
 
             with config_file.open("w", encoding="utf-8") as f:
-                config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
+                config["features"]["inputs"]["analytical_PI"]["transform"] = "log10"
                 json.dump(config, f, indent=4)
 
         if log_WI:

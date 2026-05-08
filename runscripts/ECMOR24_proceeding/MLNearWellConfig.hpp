@@ -150,13 +150,13 @@ public:
     std::vector<std::pair<std::string, FeatureSpecMLNearWell>> output_features;
 
     // Model dependent parameters:
-    // - for the CO2 models.
+    // - for the CO2 models:
     double injection_rate_per_day; // Injection rate in m^3/day
-    // - for the CO2 3D model
+
+    // - for the CO2 3D model:
     int stencil_size;
-    int num_local_features; // Number of features related to cell properties, used to distinguish them from features related to well state
-    int num_global_features; // Number of features related to global state, used to distinguish them from features related to well state and cell properties
-    // - for the CO2 3D time model
+
+    // - for the CO2 3D time model:
     int time_window;
     int first_injection_length;
     int first_break_length;
@@ -187,8 +187,6 @@ public:
         injection_rate_per_day = model_config.get<double>("injection_rate_per_day", 0.0);
 
         stencil_size = model_config.get<int>("stencil_size", 0);
-        num_local_features = model_config.get<int>("num_local_features", 0);
-        num_global_features = model_config.get<int>("num_global_features", 0);
 
         time_window = model_config.get<int>("time_window", 0);
         first_injection_length = model_config.get<int>("first_injection_length", 0);
@@ -241,20 +239,20 @@ public:
         }
         else if (model_type == "co2_2d") {
             requireFeature(input_features, "PRESSURE", "input");
-                requireFeature(input_features, "ANALYTICAL_PI", "input");
-                requireFeature(output_features, "WI", "output");
+            requireFeature(input_features, "ANALYTICAL_PI", "input");
+            requireFeature(output_features, "WI", "output");
 
-                // NOTE: The log10 transform takes place in co2_2d/upscale.py
-                const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
-                const auto& wi_spec = requireFeature(output_features, "WI", "output");
-                if (analytical_pi_spec.transform.name() != "log10" || wi_spec.transform.name() != "log10") {
-                    throw std::runtime_error("CO2 2D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies '" + analytical_pi_spec.transform.name() + "' and '" + wi_spec.transform.name() + "'");
-                }
+            // NOTE: The log10 transform takes place in co2_2d/upscale.py
+            const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+            const auto& wi_spec = requireFeature(output_features, "WI", "output");
+            if (analytical_pi_spec.transform.name() != "log10" || wi_spec.transform.name() != "log10") {
+                throw std::runtime_error("CO2 2D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies '" + analytical_pi_spec.transform.name() + "' and '" + wi_spec.transform.name() + "'");
+            }
 
         }
         else if (model_type == "co2_3d") {
-            if (stencil_size <= 0) {
-                throw std::runtime_error("Invalid 'stencil_size' for CO2 3D model in MLNearWell config");
+            if (stencil_size % 2 == 0 or stencil_size <= 0) {
+                throw std::runtime_error("Stencil size must be positive and odd for CO2 3D model in MLNearWell config");
             }
 
             // NOTE: The log10 transform takes place in co2_3d/nn.py
@@ -279,13 +277,20 @@ public:
         }
     }
 
-private:
-    // Case-insensitive helper: convert string to lowercase (safe for signed char)
+    /*!
+    * \brief Case-insensitive helper: convert string to lowercase (safe for signed 
+    * char.
+    *
+    * \param s        string to convert.
+    */
+
     static std::string toLowerStr(const std::string& s) {
         std::string r; r.reserve(s.size());
         for (unsigned char c : s) r.push_back(static_cast<char>(std::tolower(c)));
         return r;
     }
+
+private:
     /*! 
     * \brief Parse feature specifications from a PropertyTree.
     *

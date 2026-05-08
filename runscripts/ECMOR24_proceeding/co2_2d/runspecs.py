@@ -73,7 +73,7 @@ runspecs_ensemble: dict[str, Any] = {
 # Training
 ##########
 trainspecs: dict[str, Any] = {
-    "features": ["pressure", "geometr_WI", "V_tot"],
+    "features": ["pressure", "analytical_PI", "tot_inj_gas"],
     "MinMax_scaling": True,
     "kerasify": True,
     "architecture": "fcnn",

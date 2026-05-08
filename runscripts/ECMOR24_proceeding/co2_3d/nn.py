@@ -11,22 +11,10 @@ from pyopmnearwell.ml import ensemble
 from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
+from runspecs import  trainspecs
 
 # TODO: Generalize this for different stencils.
-FEATURE_TO_INDEX: dict[str, int] = {
-    "pressure_upper": 0,
-    "pressure": 1,
-    "pressure_lower": 2,
-    "saturation_upper": 3,
-    "saturation": 4,
-    "saturation_lower": 5,
-    "permeability_upper": 6,
-    "permeability": 7,
-    "permeability_lower": 8,
-    "radius": 9,
-    "total_injected_volume": 10,
-    "PI_analytical": 11,
-}
+FEATURE_TO_INDEX: dict[str, int] = {feature_name: index for index, feature_name in enumerate(trainspecs["features"])}
 
 plotted_values_units: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
@@ -79,8 +67,10 @@ def restructure_data(
     # Load data.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
-    # Add upper and lower cell features to create the training data for the stencil.
+
     new_features_lst: list[np.ndarray] = []
+
+    # Loop through all local features and add uper and lower cell features.
     for i in range(features.shape[-1] - 3):
         feature: np.ndarray = features[..., i]
 
@@ -120,7 +110,7 @@ def restructure_data(
                 padding_mode = "constant"
                 padding_value = 0.0
 
-        # Pad the third (layers) feature dimension.
+        # Pad the third feature dimension (layers).
         # TODO: Make this more general
         # Ignore MypY complaining.
         if padding_mode == "constant":
@@ -163,7 +153,8 @@ def restructure_data(
         # Set together stencil.
         new_features_lst.extend(upper_features + [feature] + lower_features)
 
-    # Add back global features.
+    # Append global features.
+
     # Radius
     new_features_lst.append(features[..., -3])
 
@@ -172,6 +163,9 @@ def restructure_data(
 
     # Analytical PI
     if trainspecs["WI_log"]:
+        # NOTE In contrast to co2_2d, the log10 transform for analytical PI and well
+        # index is applied here instead of CO2_3D_upscaler.create_ds.
+
         targets = np.log10(targets)
         new_features_lst.append(np.log10(features[..., -1]))
 
