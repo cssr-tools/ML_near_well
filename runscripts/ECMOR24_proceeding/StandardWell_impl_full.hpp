@@ -92,10 +92,8 @@ namespace Opm
         if (!configLoaded_) {
             std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
             PropertyTree pt(config_file);
-            for (const auto& model_key : pt.get_child_keys()) {
-                config_ = MLNearWellConfig(pt.get_child(model_key));
-                config_.validateConfig();
-            }
+            config_ = MLNearWellConfig(pt);
+            config_.validateConfig();
             configLoaded_ = true;
         }
 
