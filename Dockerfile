@@ -102,12 +102,14 @@ RUN cmake -S ${OPM_ROOT}/opm-common -B ${OPM_BUILD}/opm-common \
  && cmake --build ${OPM_BUILD}/opm-common -j ${OPM_BUILD_JOBS}
 
 RUN cmake -S ${OPM_ROOT}/opm-grid -B ${OPM_BUILD}/opm-grid \
+ -DCMAKE_PREFIX_PATH=${DUNE_INSTALL} \
+ -Ddune-grid_DIR=${DUNE_INSTALL}/lib/cmake/dune-grid \
  && cmake --build ${OPM_BUILD}/opm-grid -j ${OPM_BUILD_JOBS}
 
 RUN mkdir -p ${OPM_BUILD}/opm-simulators && \
  cd ${OPM_BUILD}/opm-simulators && \
- cmake -DCMAKE_BUILD_TYPE=Release ${OPM_ROOT}/opm-simulators && \
- make -j ${OPM_BUILD_JOBS} flow_gaswater_dissolution_diffuse
+ cmake -DCMAKE_BUILD_TYPE=Release ${OPM_ROOT}/opm-simulators \
+ && make -j ${OPM_BUILD_JOBS} flow_gaswater_dissolution_diffuse
 
 RUN cmake -S ${OPM_ROOT}/opm-upscaling -B ${OPM_BUILD}/opm-upscaling \
  && cmake --build ${OPM_BUILD}/opm-upscaling -j ${OPM_BUILD_JOBS}
@@ -143,5 +145,6 @@ RUN git clone --branch 2024-08_ML_near_well_article \
     cd pyopmnearwell && \
     python3.10 -m pip install --no-cache-dir -e .
 
+CMD ["bash", "-lc", "sleep infinity"]
 # Run the reproducibility workflow.
 #CMD ["bash", "-lc", "cd ./ML_near_well && bash runscripts/run.bash"]

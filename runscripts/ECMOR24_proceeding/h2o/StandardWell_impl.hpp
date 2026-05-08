@@ -72,8 +72,6 @@ namespace Opm
 
 
 
-
-
     template<typename TypeTag>
     void
     StandardWell<TypeTag>::
@@ -85,19 +83,17 @@ namespace Opm
         Base::init(depth_arg, gravity_arg, B_avg, changed_to_open_this_step);
         this->StdWellEval::init(this->perf_depth_, depth_arg, Base::has_polymermw);
 
-        
         // Check if ML Near-Well flag activated 
         if (!Parameters::Get<Parameters::UseMLNearWell>())
             return;
 
         // Load ML near-well model config.
         std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
+        std::cout << "Loading MLNearWellConfig from " << config_file << std::endl;
         PropertyTree pt(config_file);
         config_ = MLNearWellConfig(pt);
         config_.validateConfig();
     }
-
-
 
 
 
