@@ -28,8 +28,8 @@
 #include <cmath>
 #include <fstream>
 #include <string>
+#include <cctype>
 #include <stdexcept>
-#include <string>
 #include <vector>
 
 #include <opm/material/common/MathToolbox.hpp>
@@ -197,13 +197,15 @@ public:
     }
 
     bool hasInputFeature(const std::string& name) const {
+        const std::string name_l = toLowerStr(name);
         return std::any_of(input_features.begin(), input_features.end(),
-                           [&](const auto& p) { return p.first == name; });
+                           [&](const auto& p) { return toLowerStr(p.first) == name_l; });
     }
 
     bool hasOutputFeature(const std::string& name) const {
+        const std::string name_l = toLowerStr(name);
         return std::any_of(output_features.begin(), output_features.end(),
-                           [&](const auto& p) { return p.first == name; });
+                           [&](const auto& p) { return toLowerStr(p.first) == name_l; });
     }
 
     const FeatureSpecMLNearWell& requireInputFeature(const std::string& name) const {
@@ -278,7 +280,13 @@ public:
     }
 
 private:
-    /*!
+    // Case-insensitive helper: convert string to lowercase (safe for signed char)
+    static std::string toLowerStr(const std::string& s) {
+        std::string r; r.reserve(s.size());
+        for (unsigned char c : s) r.push_back(static_cast<char>(std::tolower(c)));
+        return r;
+    }
+    /*! 
     * \brief Parse feature specifications from a PropertyTree.
     *
     * Reads transform, scaling parameters, and delta flag.
@@ -328,8 +336,9 @@ private:
                                       const std::string& name,
                                     const char* feature_kind) const
     {
+        const std::string name_l = toLowerStr(name);
         for (const auto& kv : features) {
-            if (kv.first == name) return kv.second;
+            if (toLowerStr(kv.first) == name_l) return kv.second;
         }
         throw std::runtime_error(std::string("Missing required ") + feature_kind +
         " feature in MLNearWell config: '" + name + "'");
