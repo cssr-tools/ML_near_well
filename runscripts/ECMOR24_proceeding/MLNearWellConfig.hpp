@@ -22,8 +22,6 @@
 #ifndef MLNEARWELL_CONFIG_HPP
 #define MLNEARWELL_CONFIG_HPP
 
-#include <opm/simulators/flow/HybridNewtonConfig.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <fstream>

@@ -26,7 +26,6 @@
 #ifndef OPM_STANDARDWELL_HEADER_INCLUDED
 #include <config.h>
 #include <opm/simulators/wells/StandardWell.hpp>
-#include <opm/simulators/wells/MLNearWellConfig.hpp>
 #endif
 
 #include <opm/common/Exceptions.hpp>
@@ -34,6 +33,8 @@
 #include <opm/input/eclipse/Units/Units.hpp>
 
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
+#include <opm/simulators/flow/FlowProblemParameters.hpp>
+#include <opm/simulators/wells/MLNearWellConfig.hpp>
 #include <opm/simulators/wells/StandardWellAssemble.hpp>
 #include <opm/simulators/wells/VFPHelpers.hpp>
 #include <opm/simulators/wells/WellBhpThpCalculator.hpp>
@@ -294,9 +295,9 @@ namespace Opm
                              deferred_logger); 
                 }
                 if constexpr (std::is_same_v<Value, EvalWell>) {
-                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw));
+                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[componentIdx]));
                 } else {
-                    WI = wellIndexEval(simulator, perf, pressure, Tw);
+                    WI = wellIndexEval(simulator, perf, pressure, Tw[componentIdx]);
                 }
                 auto injectorType = this->well_ecl_.injectorType();
                 if (injectorType == InjectorType::WATER) {
@@ -2741,6 +2742,16 @@ namespace Opm
             const Value& pressure,
             const auto analytical_PI) const 
     {
+        auto obtain = [this](const Eval& value)
+                      {
+                          if constexpr (std::is_same_v<Value, Scalar>) {
+                              static_cast<void>(this); // suppress clang warning
+                              return getValue(value);
+                          } else {
+                              return this->extendEval(value);
+                          }
+                      };
+
         ML::Tensor<Value> input{config_.input_features.size()};
 
         // Collect and scale input variables common across all models.
@@ -2797,7 +2808,9 @@ namespace Opm
                     simulator.time() * injection_rate_per_second
                 );
 
-                input.data_ = {p, analytical_PI_scaled, tot_inj_gas};
+                input(0) = p;
+                input(1) = analytical_PI_scaled;
+                input(2) = tot_inj_gas;
         }
 
         // Static and time-dependent CO2 3D model.
@@ -2848,7 +2861,7 @@ namespace Opm
                         }
                     }
                 // Lower boundary: Set padding
-                else if (perf_i >= this->number_of_perforations_) {
+                else if (perf_i >= this->number_of_local_perforations_) {
                     for (int j = 0; j < num_local_features; ++j) {
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
