@@ -123,7 +123,7 @@ trainspecs: dict[str, Any] = {
         "permeability-1",
         "permeability+0",
         "permeability+1",
-        "radius",
+        "equivalent_radius",
         "tot_inj_gas",
         "analytical_PI",
     ],

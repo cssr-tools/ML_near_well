@@ -294,9 +294,9 @@ namespace Opm
                              deferred_logger); 
                 }
                 if constexpr (std::is_same_v<Value, EvalWell>) {
-                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure)));
+                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw));
                 } else {
-                    WI = wellIndexEval(simulator, perf, pressure);
+                    WI = wellIndexEval(simulator, perf, pressure, Tw);
                 }
                 auto injectorType = this->well_ecl_.injectorType();
                 if (injectorType == InjectorType::WATER) {
@@ -557,7 +557,7 @@ namespace Opm
         const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
         
         computePerfRate(simulator, intQuants, mob, bhp, Tw, perf, allow_cf,
-                        cq_s, perf_rates, deferred_logger, );
+                        cq_s, perf_rates, deferred_logger);
 
         auto& ws = well_state.well(this->index_of_well_);
         auto& perf_data = ws.perf_data;
@@ -2706,35 +2706,20 @@ namespace Opm
     StandardWell<TypeTag>::wellIndexEval(
             const Simulator& simulator,
             const int perf,
-            const Value& pressure) const {
+            const Value& pressure,
+            const auto analytical_PI) const
+    {
         ML::NNModel<Value> model;
         model.loadModel(config_.model_path);
 
         // Construct input & output tensors.
-        ML::Tensor<Value> input = constructInputTensor(simulator, perf, pressure);
+        ML::Tensor<Value> input = constructInputTensor(simulator, perf, pressure, analytical_PI);
         ML::Tensor<Value> output;
-
-        // Collect & scale input features. NOTE: order need to be the same as under
-        // training.
-
 
         // Run the model.
         model.apply(input, output);
         
         if (config_.debug) {
-            // Output tensor values for debugging.
-            std::cout << "pressure scaled: " << p << std::endl;
-            std::cout << "pressure: " << pressure << std::endl;
-
-            std::cout << "permeability scaled: " << k << std::endl;
-            std::cout << "permeablity: " << connection.Kh() / connection.connectionLength() << std::endl;
-
-            std::cout << "height scaled: " << h << std::endl;
-            std::cout << "height: " << connection.connectionLength() << std::endl;
-
-            std::cout << "r_e scaled: " << re << std::endl;
-            std::cout << "r_e: " << connection.r0() << std::endl;
-
             std::cout << "WI scaled: " << getValue(output.data_[0]) << std::endl;
             std::cout << "WI: " <<  config_.template unscaleAndInverseOutput<Value>("WI", output.data_[0]) << std::endl;
         }
@@ -2750,7 +2735,12 @@ namespace Opm
     template<typename TypeTag>
     template<class Value>
     ML::Tensor<Value>
-    StandardWell<TypeTag>::constructInputTensor(const Simulator& simulator, const int perf, const Value& pressure) const {
+    StandardWell<TypeTag>::constructInputTensor(
+            const Simulator& simulator,
+            const int perf,
+            const Value& pressure,
+            const auto analytical_PI) const 
+    {
         ML::Tensor<Value> input{config_.input_features.size()};
 
         // Collect and scale input variables common across all models.
@@ -2772,11 +2762,27 @@ namespace Opm
             );
             // equivalent well radius - unit [m]
             const auto re = config_.template transformAndScaleInput<Value>(
-                "radius",
+                "equivalent_radius",
                  Value(connection.r0())
             );
 
             input.data_ = {p, k, h, re};
+
+            if (config_.debug) {
+                // Output tensor values for debugging.
+                std::cout << "pressure scaled: " << p << std::endl;
+                std::cout << "pressure: " << pressure << std::endl;
+
+                std::cout << "permeability scaled: " << k << std::endl;
+                std::cout << "permeablity: " << connection.Kh() / connection.connectionLength() << std::endl;
+
+                std::cout << "height scaled: " << h << std::endl;
+                std::cout << "height: " << connection.connectionLength() << std::endl;
+
+                std::cout << "r_e scaled: " << re << std::endl;
+                std::cout << "r_e: " << connection.r0() << std::endl;
+            }
+
         }
         else if (config_.model_type == "co2_2D") {
                 // geometrical part of WI
@@ -2798,12 +2804,12 @@ namespace Opm
         else if (config_.model_type.rfind("co2_3d",0) == 0) {
             // Identify local features based on the config and model candidates.
             std::string local_feature_candidates[] = {"pressure", "saturation", "permeability"};
-            std::string local_feature_names[] = {};
+            std::vector<std::string> local_feature_names;
 
-            for (feature_name : config_.input_features) {
+            for (const auto& feature_pair : config_.input_features) {
                 for (const auto& candidate : local_feature_candidates) {
-                    if (feature_name == candidate) {
-                        local_feature_names.push_back(feature_name);
+                    if (MLNearWellConfig::toLowerStr(feature_pair.first) == candidate) {
+                        local_feature_names.push_back(feature_pair.first);
                         break;
                     }
                 }
@@ -2812,7 +2818,7 @@ namespace Opm
             int num_local_features = local_feature_names.size();
     
             // Get values for local features.
-            std::array<std::array<Value, config_.stencil_size>, num_local_features> local_features;
+            std::vector<std::vector<Value>> local_features(num_local_features, std::vector<Value>(config_.stencil_size));
 
             for (int i = 0; i < config_.stencil_size; ++i) {
                 // Perforation index
@@ -2826,35 +2832,35 @@ namespace Opm
 
                 // Upper boundary: Set padding
                 if (perf_i < 0 ) {
-                    for (int j = 0; j < config_.num_local_features; ++j) {
-                        std::string feature_name = config_.toLowerStr(local_feature_names[j]);
+                    for (int j = 0; j < num_local_features; ++j) {
+                        std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[perf_i + 1];
                             const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                             auto fs = intQuants.fluidState();
-                            features[i][j] = obtain(this->getPerfCellPressure(fs));
+                            local_features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
                         // Zero padding for other values
                         else {
-                            features[i][j] = Value(0.0);
+                            local_features[i][j] = Value(0.0);
                             }
                         }
                     }
                 // Lower boundary: Set padding
                 else if (perf_i >= this->number_of_perforations_) {
                     for (int j = 0; j < num_local_features; ++j) {
-                        std::string feature_name = local_feature_names[j];
+                        std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[perf_i - 1];
                             const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                             auto fs = intQuants.fluidState();
-                            features[i][j] = obtain(this->getPerfCellPressure(fs));
+                            local_features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
                         // Zero padding for other values
                         else {
-                            features[i][j] = Value(0.0);
+                            local_features[i][j] = Value(0.0);
                             }
                         }
                     }
@@ -2867,20 +2873,20 @@ namespace Opm
                     auto fs = intQuants.fluidState();
 
                     for (int j = 0; j < num_local_features; ++j) {
-                        std::string feature_name = local_feature_names[j];
+                        std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         if (feature_name == "pressure") {
-                            features[i][j] = obtain(this->getPerfCellPressure(fs));
+                            local_features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
                         else if (feature_name == "saturation") {
-                            features[i][j] = obtain(fs.saturation(FluidSystem::gasPhaseIdx));
+                            local_features[i][j] = obtain(fs.saturation(FluidSystem::gasPhaseIdx));
                             }
                         else if (feature_name == "permeability") {
                             const auto& connection =
                             Base::well_ecl_.getConnections()[perf_i];
                             // Network input is in m^2
-                            features[i][j] = Value(connection.Kh() / connection.connectionLength());
+                            local_features[i][j] = Value(connection.Kh() / connection.connectionLength());
                             }
-                        std::cout << feature_name << " cell_" << i << ": " << features[i][j] << std::endl;
+                        std::cout << feature_name << " cell_" << i << ": " << local_features[i][j] << std::endl;
                         }
                     }
                 }
@@ -2888,7 +2894,7 @@ namespace Opm
             // Scale local features and reorder them into the input tensor.
             // Note: The order needs to be the same as during training.
             for (int j = 0; j < num_local_features; ++j) {
-                for (int i = 0; i < stencil_size; ++i) {
+                for (int i = 0; i < config_.stencil_size; ++i) {
                     // We assume the stencil size is odd and the features are ordered
                     // based on the distance to the target perforation. For example, for
                     // a stencil size of 5, the order will be: +2, +1, 0, -1, -2. Again,
@@ -2896,25 +2902,26 @@ namespace Opm
                     int offset = i - (config_.stencil_size / 2);
                     std::string full_feature_name = local_feature_names[j] + (offset >= 0 ? "+" : "-") + std::to_string(offset);
         
-                    features[i][j] = config_.template transformAndScaleInput<Value>(
+                    local_features[i][j] = config_.template transformAndScaleInput<Value>(
                         full_feature_name,
-                        features[i][j]
+                        local_features[i][j]
                     );
-                    input(j * stencil_size + i) = features[i][j];
+                    input(j * config_.stencil_size + i) = local_features[i][j];
     
                     if (config_.debug) {
-                        std::cout << full_feature_name << " scaled: " << features[i][j] << std::endl;
+                        std::cout << full_feature_name << " scaled: " << local_features[i][j] << std::endl;
                     }
                 }
 
                 // Add shared global feature for the static and time-dependent model.
     
                 // equivalent well radius - unit [m]
-                const auto r_e_scaled =  config_.template transformAndScaleInput<Value>(
-                    "r_e",
-                    r_e
+                const auto& connection = Base::well_ecl_.getConnections()[perf];
+                const auto re =  config_.template transformAndScaleInput<Value>(
+                    "equivalent_radius",
+                    Value(connection.r0())
                 );
-                input(stencil_size * num_local_features) = r_e_scaled;
+                input(config_.stencil_size * num_local_features) = re;
             }
 
             // Add global features specific  to the static model.
@@ -2930,8 +2937,8 @@ namespace Opm
                     "analytical_PI",
                     analytical_PI
                 );
-                input(stencil_size * num_local_features + 1) = tot_inj_gas;
-                input(stencil_size * num_local_features + 2) = analytical_PI_scaled;
+                input(config_.stencil_size * num_local_features + 1) = tot_inj_gas;
+                input(config_.stencil_size * num_local_features + 2) = analytical_PI_scaled;
             }
 
             // Add global features specific (at least in position) to the static model.
@@ -2952,7 +2959,7 @@ namespace Opm
 
                 if (time_in_days >= first_injection_length +  first_break_length) {
                     // Phase 3: second injection
-                    current_injection_time = time_in_days - t2;
+                    current_injection_time = time_in_days - first_injection_length - first_break_length;
                     previous_shutin_time = first_break_length;
                     previous_injection_time = first_injection_length;
                 }
@@ -3005,17 +3012,17 @@ namespace Opm
                     analytical_PI
                 );
 
-                input(stencil_size * num_local_features + 1) = tot_inj_gas;
-                input(stencil_size * num_local_features + 2) = injection_rate;
-                input(stencil_size * num_local_features + 3) = current_injection_time_scaled;
-                input(stencil_size * num_local_features + 4) = previous_shutin_time_scaled;
-                input(stencil_size * num_local_features + 5) = previous_injection_time_scaled;
-                input(stencil_size * num_local_features + 6) = older_history_time;
-                input(stencil_size * num_local_features + 7) = analytical_PI_scaled;
+                input(config_.stencil_size * num_local_features + 1) = tot_inj_gas;
+                input(config_.stencil_size * num_local_features + 2) = injection_rate;
+                input(config_.stencil_size * num_local_features + 3) = current_injection_time_scaled;
+                input(config_.stencil_size * num_local_features + 4) = previous_shutin_time_scaled;
+                input(config_.stencil_size * num_local_features + 5) = previous_injection_time_scaled;
+                input(config_.stencil_size * num_local_features + 6) = older_history_time;
+                input(config_.stencil_size * num_local_features + 7) = analytical_PI_scaled;
 
             }
         }
-        return input
+        return input;
     }
 
 } // namespace Opm

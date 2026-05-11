@@ -45,6 +45,8 @@
 
 #include <opm/simulators/wells/StandardWellEval.hpp>
 
+#include <opm/ml/ml_model.hpp>
+
 #include <dune/common/dynvector.hh>
 #include <dune/common/dynmatrix.hh>
 
@@ -457,7 +459,19 @@ namespace Opm
                                 DeferredLogger& deferred_logger) const;
 
         template <class Value>
-        Value wellIndexEval(const Simulator& simulator, const int perf, const Value& pressure) const;
+        Value wellIndexEval(
+            const Simulator& simulator,
+            const int perf,
+            const Value& pressure,
+            const auto analytical_PI) const;
+
+        template <class Value>
+        ML::Tensor<Value> constructInputTensor(
+            const Simulator& simulator,
+            const int perf,
+            const Value& pressure,
+            const auto analytical_PI) const;
+
 
     private:
         Eval connectionRateEnergy(const std::vector<EvalWell>& cq_s,
