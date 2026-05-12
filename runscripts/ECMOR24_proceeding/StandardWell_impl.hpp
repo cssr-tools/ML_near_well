@@ -294,18 +294,23 @@ namespace Opm
                              fmt::format("ML well index only implemented with no cross flow. Well {}", name()),
                              deferred_logger); 
                 }
-                if constexpr (std::is_same_v<Value, EvalWell>) {
-                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[componentIdx]));
-                } else {
-                    WI = wellIndexEval(simulator, perf, pressure, Tw[componentIdx]);
-                }
                 auto injectorType = this->well_ecl_.injectorType();
                 if (injectorType == InjectorType::WATER) {
                     const unsigned waterCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::waterCompIdx);
+                    if constexpr (std::is_same_v<Value, EvalWell>) {
+                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[waterCompIdx]));
+                    } else {
+                        WI = wellIndexEval(simulator, perf, pressure, Tw[waterCompIdx]);
+                    }
                     cq_s[waterCompIdx] = - WI *  drawdown;
                 }
                 else if (injectorType == InjectorType::GAS) {
                     const unsigned gasCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::gasCompIdx);
+                    if constexpr (std::is_same_v<Value, EvalWell>) {
+                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[gasCompIdx]));
+                    } else {
+                        WI = wellIndexEval(simulator, perf, pressure, Tw[gasCompIdx]);
+                    }
                     cq_s[gasCompIdx] = - WI *  drawdown;
                 }
             } 
@@ -352,11 +357,11 @@ namespace Opm
                 }
 
                 // injecting connections total volumerates at standard conditions
-            for (int componentIdx = 0; componentIdx < this->numConservationQuantities(); ++componentIdx) {
-                    const Value cqt_i = - Tw[componentIdx] * (total_mob_dense * drawdown);
-                    Value cqt_is = cqt_i / volumeRatio;
-                    cq_s[componentIdx] = cmix_s[componentIdx] * cqt_is;
-                }
+                for (int componentIdx = 0; componentIdx < this->numConservationQuantities(); ++componentIdx) {
+                        const Value cqt_i = - Tw[componentIdx] * (total_mob_dense * drawdown);
+                        Value cqt_is = cqt_i / volumeRatio;
+                        cq_s[componentIdx] = cmix_s[componentIdx] * cqt_is;
+                    }
             }
 
             // calculating the perforation solution gas rate and solution oil rates
@@ -2748,7 +2753,7 @@ namespace Opm
                               static_cast<void>(this); // suppress clang warning
                               return getValue(value);
                           } else {
-                              return this->extendEval(value);
+                              return this->Base::restrictEval(value);
                           }
                       };
 
