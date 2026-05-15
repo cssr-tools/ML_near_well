@@ -16,11 +16,15 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 from pyopmnearwell.utils import units
-
+"""
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
 OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
-FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"""
+dirname: pathlib.Path = pathlib.Path(__file__).parent
+FLOW: pathlib.Path = pathlib.Path("/usr/bin/flow")
+OPM_ML: pathlib.Path = pathlib.Path("/usr")
+FLOW_ML: pathlib.Path = pathlib.Path("/usr/bin/flow")
 
 # Fixed values for all runs
 NUM_LAYERS: int = 5
@@ -31,7 +35,7 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 250
+NUM_MEMBERS: int = 300
 
 INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection ~190 t/d
 INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection ~11 200 t/d
@@ -39,14 +43,15 @@ INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection ~11 200 t/d
 #INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (5.0, 120.0, NUM_MEMBERS), 
-    "SHUT_DAYS": (7.0, 40.0, NUM_MEMBERS),
+    "INJ1_DAYS": (5.0, 100.0, NUM_MEMBERS), 
+    "SHUT_DAYS": (7.0, 42.0, NUM_MEMBERS), 
 }
 """
 time_variables: dict[str, tuple[float, float, int]] = {
     "INJ1_DAYS": (5.0, 30.0, NUM_MEMBERS), 
     "SHUT_DAYS": (7.0, 15.0, NUM_MEMBERS),
-}"""
+}
+"""
 variables = {
     "INJECTION_RATE": (INJECTION_MIN, INJECTION_MAX, NUM_MEMBERS),
     "SCHEDULE_SEED": (0.0, 2_147_483_647, NUM_MEMBERS),
@@ -57,11 +62,11 @@ runspecs_ensemble: dict[str, Any] = {
     "npruns": 5,             # number of parallel runs
     "variables": variables,
     "constants": {
-        "PERM_0": 5e-13  * units.M2_TO_MILIDARCY,
-        "PERM_1": 1e-12  * units.M2_TO_MILIDARCY,
-        "PERM_2": 2e-12  * units.M2_TO_MILIDARCY,
-        "PERM_3": 4e-12  * units.M2_TO_MILIDARCY,
-        "PERM_4": 8e-12  * units.M2_TO_MILIDARCY,
+        "PERM_0": 4e-13  * units.M2_TO_MILIDARCY,
+        "PERM_1": 8e-13  * units.M2_TO_MILIDARCY,
+        "PERM_2": 1.2e-12  * units.M2_TO_MILIDARCY,
+        "PERM_3": 1.6e-12  * units.M2_TO_MILIDARCY,
+        "PERM_4": 2e-12  * units.M2_TO_MILIDARCY,
         "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  
         "INIT_TEMPERATURE": 40,      # [°C]
         "SURFACE_DENSITY": SURFACE_DENSITY,
@@ -70,11 +75,11 @@ runspecs_ensemble: dict[str, Any] = {
         [1, 1, 1, 1, 0.0], # SHUT
         [1, 1, 1, 1, 1.0],  # INJ2
     ],
-        "INJECTION_TIME": 180,  # [day]
-        "HISTORY_WINDOW_DAYS": 180,  # [day] s
+        "INJECTION_TIME": 160,  # [day]
+        "HISTORY_WINDOW_DAYS": 160,  # [day] s
         "REPORTSTEP_LENGTH": 0.5,    # [day]
         "WELL_RADIUS": 0.2,          # [m]
-        "POROSITY": 0.2,
+        "POROSITY": 0.25,
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
         "NUM_XCELLS": 200,
@@ -127,19 +132,18 @@ trainspecs: dict[str, Any] = {
 constants_integration_1: dict[str, Any] = {
     **runspecs_ensemble["constants"],
     **{
-        "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,
         "OPM": OPM_ML,
         "FLOW": FLOW_ML,
-        "WELL_RADIUS": 0.25,
+        "WELL_RADIUS": 0.2,
 
-        "INJ1_DAYS": 15.0,
-        "SHUT_DAYS": 10.0,
-        "INJECTION_RATE": 2.0e6 * SURFACE_DENSITY,
+        "INJ1_DAYS": 75.0,
+        "SHUT_DAYS": 33.0,
+        "INJECTION_RATE": 9.0e6 * SURFACE_DENSITY,
     },
 }
 # This key will be used in variables.
 del constants_integration_1["NUM_ZCELLS"]
-
+"""
 runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "name": "integration_3D_and_Peaceman_1",
     "ensemble_name": "ensemble_run",
@@ -168,39 +172,40 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
         "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 6,
     },
     "constants": constants_integration_1,
-}
+}"""
 
-runspecs_integration_2D_1: dict[str, Any] = {
-    **runspecs_integration_3D_and_Peaceman_1,
-    **{
-        "name": "integration_2D_1",
-        "variables": {
-            "RESERVOIR_SIZE": [1100] * 3,  # unit: [m]
-            "GRID_SIZE": [6, 10, 20],  # 55],  # , 55],
-            "ML_MODEL_PATH": [
-                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-                str(dirname / ".." / "co2_2d" / "nn" / "WI.model"),
-            ],
-            "RUN_NAME": [
-                "90x90m_NN_2D",
-                "52x52m_NN_2D",
-                "27x27m_NN_2D",
-            ],
-            "NUM_ZCELLS": [NUM_LAYERS] * 3,
-        },
+runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
+    "name": "integration_3D_and_Peaceman_1",
+    "ensemble_name": "ensemble_run",
+    "nn_name": "trainspecs",
+    "variables": {
+        "RESERVOIR_SIZE": [550, 1100, 1100, 1100],
+         # Benchmark får LGR/telescopic grid.
+        # De andre er uniform coarse grid.
+        "GRID_SIZE": [53, 5, 10, 20],
+        "GRID_XFACTOR": [1.53, 0.0, 0.0, 0.0],
+        
+        "ML_MODEL_PATH": ["", "", "", ""],
+        "RUN_NAME": [
+            "8x8M_Peaceman_more_zcells",
+            "90x90m_Peaceman",
+            "52x52m_Peaceman",
+            "27x27m_Peaceman",
+        ],
+        "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 3,
     },
+    "constants": constants_integration_1,
 }
 
 constants_integration_2: dict[str, Any] = {
     **constants_integration_1,
     **{
-        "PERM_0": 8e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_1": 5e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_2": 1e-12 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_3": 8e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "PERM_4": 5e-13 * units.M2_TO_MILIDARCY,  # unit: [mD]
-        "INIT_PRESSURE": 90 * units.BAR_TO_PASCAL,  # unit: [Pa]
+        "PERM_0": 5e-13  * units.M2_TO_MILIDARCY,
+        "PERM_1": 1e-12  * units.M2_TO_MILIDARCY,
+        "PERM_2": 1.5e-12  * units.M2_TO_MILIDARCY,
+        "PERM_3": 2e-12  * units.M2_TO_MILIDARCY,
+        "PERM_4": 3e-12  * units.M2_TO_MILIDARCY,
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  # unit: [Pa]
     },
 }
 
@@ -208,14 +213,6 @@ runspecs_integration_3D_and_Peaceman_2: dict[str, Any] = {
     **runspecs_integration_3D_and_Peaceman_1,
     **{
         "name": "integration_3D_and_Peaceman_2",
-        "constants": constants_integration_2,
-    },
-}
-
-runspecs_integration_2D_2: dict[str, Any] = {
-    **runspecs_integration_2D_1,
-    **{
-        "name": "integration_2D_2",
         "constants": constants_integration_2,
     },
 }
@@ -240,13 +237,6 @@ runspecs_integration_3D_and_Peaceman_3: dict[str, Any] = {
     },
 }
 
-runspecs_integration_2D_3: dict[str, Any] = {
-    **runspecs_integration_2D_1,
-    **{
-        "name": "integration_2D_3",
-        "constants": constants_integration_3,
-    },
-}
 
 constants_integration_4: dict[str, Any] = {
     **constants_integration_1,
@@ -264,14 +254,6 @@ runspecs_integration_3D_and_Peaceman_4: dict[str, Any] = {
     **runspecs_integration_3D_and_Peaceman_1,
     **{
         "name": "integration_3D_and_Peaceman_4",
-        "constants": constants_integration_4,
-    },
-}
-
-runspecs_integration_2D_4: dict[str, Any] = {
-    **runspecs_integration_2D_1,
-    **{
-        "name": "integration_2D_4",
         "constants": constants_integration_4,
     },
 }

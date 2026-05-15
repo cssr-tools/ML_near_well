@@ -23,6 +23,7 @@ from runspecs import (
 )
 from tensorflow import keras
 from upscale import CO2_3D_upscaler
+from tensorflow.keras.callbacks import CSVLogger, EarlyStopping, ReduceLROnPlateau
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
@@ -54,6 +55,7 @@ integration_3d_dir_1: pathlib.Path = (
 integration_3d_dir_2: pathlib.Path = (
     dirname / runspecs_integration_3D_and_Peaceman_2["name"]
 )
+
 integration_3d_dir_3: pathlib.Path = (
     dirname / runspecs_integration_3D_and_Peaceman_3["name"]
 )
@@ -122,7 +124,7 @@ if True:
         extracted_data, runspecs_ensemble, data_dim=5, angle=ANGLE
     )
     print("\n=== STAGE: upscaler.create_ds START ===", flush=True)
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=12, step_size_t=1, keep_xcells=142)
+    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=12, step_size_t=2, keep_xcells=142)
     # Fjern de to innerste punktene nær brønnen
     features = features[..., 2:, :]
     targets = targets[..., 2:]
@@ -177,18 +179,59 @@ if False:
 
 print("\n=== STAGE: tune_and_train START ===", flush=True)
 
+
+history_csv = nn_dir / "training_history.csv"
+
+callbacks = [
+    CSVLogger(str(history_csv), append=False),
+    EarlyStopping(
+        monitor="val_loss",
+        patience=30,
+        restore_best_weights=True,
+        verbose=1,
+    ),
+    ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.5,
+        patience=15,
+        min_delta=1e-6,
+        min_lr=1e-6,
+        verbose=1,
+    ),
+]
 # Tune and train model.
 if True:
-    tune_and_train(
-        trainspecs,
-        data_stencil_dir,
-        nn_dir,
-        max_trials=5,
-        lr=1e-3,
-        lr_tune=1e-4,
-        epochs=1000,
-        executions_per_trial=1,
-    )
+    original_fit = keras.Model.fit
+
+    def fit_with_callbacks(self, *args, **kwargs):
+        existing_callbacks = kwargs.get("callbacks", [])
+        if existing_callbacks is None:
+            existing_callbacks = []
+
+        kwargs["callbacks"] = list(existing_callbacks) + callbacks
+
+        return original_fit(self, *args, **kwargs)
+
+    keras.Model.fit = fit_with_callbacks
+
+    try:
+        if True:
+            tune_and_train(
+                trainspecs,
+                data_stencil_dir,
+                nn_dir,
+                max_trials=10,
+                lr=2e-3,
+                lr_tune=1e-4,
+                epochs=1000,
+                bs=512,
+                executions_per_trial=1,
+            )
+    finally:
+        keras.Model.fit = original_fit
+
+    print(f"training_history exists: {history_csv.exists()}", flush=True)
+    print(f"training_history path: {history_csv}", flush=True)
 print("=== STAGE: tune_and_train DONE ===", flush=True)
 # Do some plotting of results and sensitivity analysis.
 if False:
@@ -243,7 +286,7 @@ if False:
     )
 
 # Integrate into OPM.
-if True:
+if False:
     """integration.recompile_flow(
         nn_dir / "scalings.csv",
         runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
@@ -272,46 +315,69 @@ if True:
         )
         
 # Plot results.
-if True:
+if False:
+    from ecl.summary import EclSum
+
+    print("\n=== STAGE: plot_results START ===", flush=True)
+
     for savedir_3d in [
         integration_3d_dir_1,
         integration_3d_dir_2,
         integration_3d_dir_3,
         integration_3d_dir_4,
     ]:
-        labels: list[str] = [
+        print(f"\n--- Plotting {savedir_3d} ---", flush=True)
+
+        labels = [
             "Fine-scale benchmark",
-            "90x90m NN 3D",
-            "52x52m NN 3D",
-            "27x27m NN 3D",
             "90x90m Peaceman",
             "52x52m Peaceman",
             "27x27m Peaceman",
         ]
-        summary_files: list[pathlib.Path] = [
-            (
-                dirname
-                / savedir_3d
-                / "run_0"
-                / "output"
-                / ("8x8m_Peaceman_more_zcells").upper()
-            ).with_suffix(".SMSPEC"),
-        ] + [
-            (
-                savedir_3d
-                / f"run_{i}"
-                / "output"
-                / "_".join(labels[i].split(" ")).upper()
-            ).with_suffix(".SMSPEC")
-            for i in range(1, 7)
+
+        summary_files = [
+            savedir_3d / "run_0" / "output" / "8X8M_PEACEMAN_MORE_ZCELLS.SMSPEC",
+            savedir_3d / "run_1" / "output" / "90X90M_PEACEMAN.SMSPEC",
+            savedir_3d / "run_2" / "output" / "52X52M_PEACEMAN.SMSPEC",
+            savedir_3d / "run_3" / "output" / "27X27M_PEACEMAN.SMSPEC",
         ]
-        colors: list[str] = (
-            ["black"]
-            + list(plt.cm.Blues(np.linspace(0.7, 0.3, 3)))  # type: ignore
-            + list(plt.cm.Greys(np.linspace(0.7, 0.3, 3)))  # type: ignore
-        )
-        linestyles: list[str] = ["solid"] + ["dashed"] * 3 + ["dotted"] * 3
-        read_and_plot_bhp(
-            summary_files, labels, colors, linestyles, savedir_3d / "bhp.svg"
-        )
-        bhp_error(summary_files, savedir_3d / "bhp_diffs.csv", 0)
+
+        fig, ax = plt.subplots()
+
+        for summary_file, label in zip(summary_files, labels):
+            print(f"Reading {summary_file}", flush=True)
+
+            summary = EclSum(str(summary_file))
+
+            time = np.array(summary.get_values("TIME", report_only=True))
+            bhp = np.array(summary.get_values("WBHP:INJ0", report_only=True))
+
+            print(
+                f"{label}: TIME={time.shape}, WBHP={bhp.shape}",
+                flush=True,
+            )
+
+            linewidth = 1.5 if label.startswith("Fine-scale") else 3.0
+            linestyle = "solid" if label.startswith("Fine-scale") else "dotted"
+
+            ax.plot(
+                time,
+                bhp,
+                label=label,
+                linestyle=linestyle,
+                linewidth=linewidth,
+            )
+
+        ax.set_xlabel("Time since injection start (days)")
+        ax.set_ylabel("Bottom hole pressure")
+        ax.legend()
+
+        fig.tight_layout()
+
+        outpath = savedir_3d / "bhp.svg"
+        print(f"Saving {outpath}", flush=True)
+
+        fig.savefig(outpath)
+        plt.close(fig)
+
+    print("\n=== STAGE: plot_results DONE ===", flush=True)
