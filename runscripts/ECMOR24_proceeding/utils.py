@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import inspect
+import json
 import math
 import pathlib
 from typing import Any, Literal, Optional
@@ -20,8 +21,6 @@ from ecl.summary.ecl_sum import EclSum
 from matplotlib import pyplot as plt
 from pyopmnearwell.ml import ensemble
 from pyopmnearwell.ml import nn as nn_GRU
-
-
 from pyopmnearwell.utils import plotting, units
 from tensorflow import keras
 
@@ -40,8 +39,6 @@ COMP_INVERSE: dict[str, dict[str, str]] = {
     "time": {"radius": "layer"},
     "layer": {"radius": "time step", "time": "radius"},
 }
-
-FEATURE_TO_INDEX: dict[str, int] = {}
 
 
 def full_ensemble(
@@ -189,6 +186,8 @@ def tune_and_train(
 
 
     """
+    nn_dirname = pathlib.Path(nn_dirname)
+
     # Create datasets and check that they are not empty.
     train_data, val_data, test_data = nn_GRU.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
@@ -275,6 +274,18 @@ def tune_and_train(
         **train_dict,
     )
 
+    # Write model keras file to json.
+    config_file = nn_dirname / "MLNearWellConfig.json"
+    if not config_file.exists() or config_file.stat().st_size == 0:
+        config = {}
+    else:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+
+    with config_file.open("w", encoding="utf-8") as f:
+        config["model_path"] = str(nn_dirname / "bestmodel.keras")
+        json.dump(config, f, indent=4)
+
 
 def just_train(
     trainspecs: dict[str, Any],
@@ -299,6 +310,8 @@ def just_train(
             - lr (float): Default is 1e-4.
 
     """
+    nn_dirname = pathlib.Path(nn_dirname)
+
     train_data, val_data, test_data = nn_GRU.scale_and_prepare_dataset(  # type: ignore
         data_dirname,
         feature_names=trainspecs["features"],
@@ -344,6 +357,18 @@ def just_train(
         epochs=kwargs.get("epochs", 100),
         lr=kwargs.get("lr", 1e-4),
     )
+
+    # Write model keras file to json.
+    config_file = nn_dirname / "MLNearWellConfig.json"
+    if not config_file.exists() or config_file.stat().st_size == 0:
+        config = {}
+    else:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+
+    with config_file.open("w", encoding="utf-8") as f:
+        config["model_path"] = str(nn_dirname / "bestmodel.keras")
+        json.dump(config, f, indent=4)
 
 
 def reload_data(
@@ -561,7 +586,7 @@ def plot_member(
         model_output: np.ndarray = nn_GRU.scale_and_evaluate(
             model,
             model_output,
-            nn_dirname / "scalings.csv",  # type: ignore
+            nn_dirname / "MLNearWellConfig.json",  # type: ignore
         )
 
         # Reshape back into original form

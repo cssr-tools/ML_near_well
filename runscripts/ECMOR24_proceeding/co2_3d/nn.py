@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import csv
+import json
 import math
 import pathlib
 from typing import Any
-import csv
 
 import numpy as np
 import tensorflow as tf
@@ -11,25 +12,12 @@ from pyopmnearwell.ml import ensemble
 from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
+from runspecs import trainspecs
 
 # TODO: Generalize this for different stencils.
-FEATURE_TO_INDEX = {
-    "pressure_upper": 0,
-    "pressure": 1,
-    "pressure_lower": 2,
-    "saturation_upper": 3,
-    "saturation": 4,
-    "saturation_lower": 5,
-    "radius": 6,
-    "total_injected_volume": 7,
-    "injection_rate": 8,
-    "current_injection_time": 9,
-    "previous_shutin_time": 10,
-    "previous_injection_time": 11,
-    "older_history_time": 12,
-    "PI_analytical": 13,
+FEATURE_TO_INDEX: dict[str, int] = {
+    feature_name: index for index, feature_name in enumerate(trainspecs["features"])
 }
-
 
 plotted_values_units: dict[str, str] = {
     "WI": r"[m^4 \cdot s/kg]",
@@ -41,7 +29,6 @@ comparisons_inverse: dict[str, str] = {
     "timesteps": "layer",
     "layers": "timestep or radius",
 }
-
 
 
 def restructure_data(
@@ -66,7 +53,7 @@ def restructure_data(
     5. SATURATION - cell
     6. SATURATION - lower neighbor
     10. radius
-    11. Injection rate 
+    11. Injection rate
     12. total injected gas
     13. analytical PI
 
@@ -75,13 +62,18 @@ def restructure_data(
         stencil_size (int, optional): _description_. Defaults to 3.
 
     """
+    data_dirname = pathlib.Path(data_dirname)
+    new_data_dirname = pathlib.Path(new_data_dirname)
+
     # Load data.
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
     print("UPSCALE nfeat:", features.shape[-1])
     print("UPSCALE tslsi first 5:", features[0, :5, 0, 0, 5])
     print("UPSCALE last shut first 5:", features[0, :5, 0, 0, 6])
-    print("UPSCALE time first 5:", features[0, :5, 0, 0, 7])    # Add upper and lower cell features to create the training data for the stencil.
+    print(
+        "UPSCALE time first 5:", features[0, :5, 0, 0, 7]
+    )  # Add upper and lower cell features to create the training data for the stencil.
     new_features_lst: list[np.ndarray] = []
 
     # ---- ONLY stencil local features: pressure (0) and saturation (1) ----
@@ -108,7 +100,9 @@ def restructure_data(
                 padding_mode = "edge"
                 padding_value = 0.0
 
-        # Pad the third (layers) feature dimension.
+        # Pad the third feature dimension (layers).
+        # TODO: Make this more general
+        # Ignore MypY complaining.
         if padding_mode == "constant":
             upper_features = [
                 np.pad(
@@ -149,23 +143,23 @@ def restructure_data(
         new_features_lst.extend(upper_features + [feature] + lower_features)
 
     # ---- Add back global features using explicit indices in UPSCALER features tensor ----
-    RADIUS_IDX        = 2
-    FGIT_IDX          = 3
-    WGIR_IDX          = 4
-    CURR_INJ_IDX      = 5
-    PREV_SHUTIN_IDX   = 6
-    PREV_INJ_IDX      = 7
-    OLDER_HIST_IDX    = 8
-    TIME_IDX          = 9
-    PI_IDX            = 10
+    RADIUS_IDX = 2
+    FGIT_IDX = 3
+    WGIR_IDX = 4
+    CURR_INJ_IDX = 5
+    PREV_SHUTIN_IDX = 6
+    PREV_INJ_IDX = 7
+    OLDER_HIST_IDX = 8
+    TIME_IDX = 9
+    PI_IDX = 10
 
-    new_features_lst.append(features[..., RADIUS_IDX])       # radius
-    new_features_lst.append(features[..., FGIT_IDX])         # total_injected_volume
-    new_features_lst.append(features[..., WGIR_IDX])         # injection_rate
-    new_features_lst.append(features[..., CURR_INJ_IDX])     # current_injection_time
+    new_features_lst.append(features[..., RADIUS_IDX])  # radius
+    new_features_lst.append(features[..., FGIT_IDX])  # total_injected_volume
+    new_features_lst.append(features[..., WGIR_IDX])  # injection_rate
+    new_features_lst.append(features[..., CURR_INJ_IDX])  # current_injection_time
     new_features_lst.append(features[..., PREV_SHUTIN_IDX])  # previous_shutin_time
-    new_features_lst.append(features[..., PREV_INJ_IDX])     # previous_injection_time
-    new_features_lst.append(features[..., OLDER_HIST_IDX])   # older_history_time
+    new_features_lst.append(features[..., PREV_INJ_IDX])  # previous_injection_time
+    new_features_lst.append(features[..., OLDER_HIST_IDX])  # older_history_time
     # new_features_lst.append(features[..., TIME_IDX])       # time_days, only if you want it
 
     PI = features[..., PI_IDX]
@@ -180,18 +174,20 @@ def restructure_data(
     # --- Build final feature tensor ---
     new_features = np.stack(new_features_lst, axis=-1)
 
-################ENDRET! sparer kun på de radene som inneholder WI#############
-    # --- Select chosen features --- 
-    new_features = new_features[..., [FEATURE_TO_INDEX[f] for f in trainspecs["features"]]]
+    ################ENDRET! sparer kun på de radene som inneholder WI#############
+    # --- Select chosen features ---
+    new_features = new_features[
+        ..., [FEATURE_TO_INDEX[f] for f in trainspecs["features"]]
+    ]
 
     # --- Flatten ---
-    X = new_features.reshape(-1, new_features.shape[-1])   # (N, F)
-    y = targets.reshape(-1)                                # (N,)
+    X = new_features.reshape(-1, new_features.shape[-1])  # (N, F)
+    y = targets.reshape(-1)  # (N,)
 
     # --- NaN-safe target transform + drop unlabeled (shut-in) ---
     valid = np.isfinite(y)
     if trainspecs["WI_log"]:
-        valid &= (y > 0)
+        valid &= y > 0
         y_safe = np.where(valid, y, 1.0)
         y_out = np.log10(np.maximum(y_safe, eps))
     else:
@@ -199,7 +195,7 @@ def restructure_data(
 
     X = X[valid]
     y_out = y_out[valid]
-    
+
     ####### ENDRET 16.03 ####################################
     nmembers, nt, nlayers, nx, _ = new_features.shape
 
@@ -228,9 +224,30 @@ def restructure_data(
 
     valid = np.isfinite(y)
     if trainspecs["WI_log"]:
-        valid &= (y > 0)
+        # NOTE In contrast to co2_2d, the log10 transform for analytical PI and well
+        # index is applied here instead of CO2_3D_upscaler.create_ds.
+
+        valid &= y > 0
         y_safe = np.where(valid, y, 1.0)
         y_out = np.log10(np.maximum(y_safe, eps))
+
+        # NOTE For the following, the MLNearWellConfig file is assumed to have been
+        # created by pyopmnearwell.ml.nn.scale_and_prepare_dataset in the nn directory.
+
+        # Update the config to reflect the log10 transform for the analytical PI
+        # feature and the WI target.
+        config_file = data_dirname.parent / "nn" / "MLNearWellConfig.json"
+        if not config_file.exists() or config_file.stat().st_size == 0:
+            config = {}
+        else:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+
+        with config_file.open("w", encoding="utf-8") as f:
+            config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
+            config["features"]["outputs"]["WI"]["transform"] = "log10"
+            json.dump(config, f, indent=4)
+
     else:
         y_out = np.where(valid, y, 0.0)
 
@@ -245,7 +262,9 @@ def restructure_data(
     new_data_dirname = pathlib.Path(new_data_dirname)
     new_data_dirname.mkdir(parents=True, exist_ok=True)
 
-    with (new_data_dirname / "row_to_run_map.csv").open("w", newline="", encoding="utf-8") as f:
+    with (new_data_dirname / "row_to_run_map.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as f:
         writer = csv.writer(f)
         writer.writerow(["row_idx", "member_id", "time_id", "layer_id", "x_id"])
         for i, m, t, l, x in zip(
@@ -254,7 +273,6 @@ def restructure_data(
             writer.writerow([i, m, t, l, x])
 
     ####### ENDRET 16.03 ####################################
-
 
     ensemble.store_dataset(
         X.astype(np.float32),
@@ -269,7 +287,7 @@ def restructure_data_sequence(
     trainspecs: dict[str, Any],
     stencil_size: int = 3,
 ) -> None:
-  
+
     ds: tf.data.Dataset = tf.data.Dataset.load(str(data_dirname))
     features, targets = next(iter(ds.batch(batch_size=len(ds)).as_numpy_iterator()))
 
@@ -356,23 +374,23 @@ def restructure_data_sequence(
     # ------------------------------------------------------------------
     # 2. Add global / engineered features
     # ------------------------------------------------------------------
-    RADIUS_IDX        = 2
-    FGIT_IDX          = 3
-    WGIR_IDX          = 4
-    CURR_INJ_IDX      = 5
-    PREV_SHUTIN_IDX   = 6
-    PREV_INJ_IDX      = 7
-    OLDER_HIST_IDX    = 8
-    TIME_IDX          = 9
-    PI_IDX            = 10
+    RADIUS_IDX = 2
+    FGIT_IDX = 3
+    WGIR_IDX = 4
+    CURR_INJ_IDX = 5
+    PREV_SHUTIN_IDX = 6
+    PREV_INJ_IDX = 7
+    OLDER_HIST_IDX = 8
+    TIME_IDX = 9
+    PI_IDX = 10
 
-    new_features_lst.append(features[..., RADIUS_IDX])       # radius
-    new_features_lst.append(features[..., FGIT_IDX])         # total_injected_volume
-    new_features_lst.append(features[..., WGIR_IDX])         # injection_rate
-    new_features_lst.append(features[..., CURR_INJ_IDX])     # current_injection_time
+    new_features_lst.append(features[..., RADIUS_IDX])  # radius
+    new_features_lst.append(features[..., FGIT_IDX])  # total_injected_volume
+    new_features_lst.append(features[..., WGIR_IDX])  # injection_rate
+    new_features_lst.append(features[..., CURR_INJ_IDX])  # current_injection_time
     new_features_lst.append(features[..., PREV_SHUTIN_IDX])  # previous_shutin_time
-    new_features_lst.append(features[..., PREV_INJ_IDX])     # previous_injection_time
-    new_features_lst.append(features[..., OLDER_HIST_IDX])   # older_history_time
+    new_features_lst.append(features[..., PREV_INJ_IDX])  # previous_injection_time
+    new_features_lst.append(features[..., OLDER_HIST_IDX])  # older_history_time
     # new_features_lst.append(features[..., TIME_IDX])       # time_days, only if used
 
     PI = features[..., PI_IDX]
@@ -398,7 +416,7 @@ def restructure_data_sequence(
     # ------------------------------------------------------------------
     valid = np.isfinite(targets)
     if trainspecs["WI_log"]:
-        valid &= (targets > 0)
+        valid &= targets > 0
         targets_safe = np.where(valid, targets, 1.0)
         y_all = np.log10(np.maximum(targets_safe, eps))
     else:
@@ -425,9 +443,7 @@ def restructure_data_sequence(
         nruns * nlayers * nxcells, nt, nfeat
     )
 
-    y_seq = np.transpose(y_all, (0, 2, 3, 1)).reshape(
-        nruns * nlayers * nxcells, nt, 1
-    )
+    y_seq = np.transpose(y_all, (0, 2, 3, 1)).reshape(nruns * nlayers * nxcells, nt, 1)
 
     mask_seq = np.transpose(mask_all, (0, 2, 3, 1)).reshape(
         nruns * nlayers * nxcells, nt, 1
@@ -449,7 +465,6 @@ def restructure_data_sequence(
     print("Filtered sequence X shape:", X_seq.shape)
     print("Filtered sequence y shape:", y_seq.shape)
     print("Filtered sequence mask shape:", mask_seq.shape)
-
 
     ######ENDRET 16.03 ################################
 
@@ -481,7 +496,9 @@ def restructure_data_sequence(
     new_data_dirname = pathlib.Path(new_data_dirname)
     new_data_dirname.mkdir(parents=True, exist_ok=True)
 
-    with (new_data_dirname / "row_to_run_map.csv").open("w", newline="", encoding="utf-8") as f:
+    with (new_data_dirname / "row_to_run_map.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as f:
         writer = csv.writer(f)
         writer.writerow(["row_idx", "member_id", "time_id", "layer_id", "x_id"])
         for row in zip(row_ids, member_ids, time_ids, layer_ids, x_ids):

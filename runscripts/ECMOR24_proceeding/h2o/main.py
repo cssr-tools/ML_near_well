@@ -12,8 +12,6 @@ from pyopmnearwell.utils import units
 from runspecs import (
     runspecs_ensemble,
     runspecs_integration_1,
-    runspecs_integration_2,
-    runspecs_integration_3,
     trainspecs,
 )
 from tensorflow import keras
@@ -109,15 +107,15 @@ if True:
     heights: np.ndarray = data[..., 1:, 3]
     radii = radii[1:-1]
 
-    assert (
-        pressures.shape[-1] == radii.shape[-1]
-    ), "``radii.shape`` does not equal ``pressure.shape"
-    assert (
-        pressures.shape == permeabilities.shape
-    ), "``permeabilities.shape`` does not equal ``pressure.shape"
-    assert (
-        pressures.shape == heights.shape
-    ), "``heights.shape`` does not equal ``pressure.shape"
+    assert pressures.shape[-1] == radii.shape[-1], (
+        "``radii.shape`` does not equal ``pressure.shape"
+    )
+    assert pressures.shape == permeabilities.shape, (
+        "``permeabilities.shape`` does not equal ``pressure.shape"
+    )
+    assert pressures.shape == heights.shape, (
+        "``heights.shape`` does not equal ``pressure.shape"
+    )
     assert pressures.shape == WI.shape, "``WI.shape`` does not equal ``pressure.shape"
 
     features: np.ndarray = np.stack(
@@ -185,19 +183,10 @@ if True:
 
 # Integrate into OPM.
 if True:
-    integration.recompile_flow(
-        nn_dir / "scalings.csv",
-        runspecs_integration_1["constants"]["OPM"],
-        dirname / "standardwell_impl.mako",
-        dirname / "standardwell.hpp",
-    )
     for integration_dir, runspecs_integration in zip(
         [integration_dir_1, integration_dir_2, integration_dir_3],
         [runspecs_integration_1, runspecs_integration_2, runspecs_integration_3],
     ):
-        # for integration_dir, runspecs_integration in zip(
-        #     [integration_dir_1], [runspecs_integration_1]
-        # ):
         integration.run_integration(
             runspecs_integration,
             integration_dir,
@@ -206,7 +195,7 @@ if True:
 
 
 # Plot results.
-if True:
+if False:
     for integration_dir in [integration_dir_1, integration_dir_2, integration_dir_3]:
         summary_files: list[pathlib.Path] = [
             integration_dir / "run_0" / "output" / "5X5M_PEACEMAN.SMSPEC",

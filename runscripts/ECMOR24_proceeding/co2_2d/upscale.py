@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import pathlib
 from typing import Any
@@ -147,9 +148,9 @@ class CO2_2D_Upscaler(BaseUpscaler):
         # functions).
         # Get pressures.
         feature_lst.append(self.get_vertically_averaged_values(self.data, 0))
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Pressure feature has wrong shape."
+        assert feature_lst[-1].shape == self.single_feature_shape, (
+            "Pressure feature has wrong shape."
+        )
 
         # Get geometrical part of WI.
         permeabilities: np.ndarray = self.get_homogeneous_values(self.data, 2)
@@ -165,17 +166,17 @@ class CO2_2D_Upscaler(BaseUpscaler):
                 # is the inner radius of the first cell.
             )
         )
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Geometrical part of WI feature has wrong shape."
+        assert feature_lst[-1].shape == self.single_feature_shape, (
+            "Geometrical part of WI feature has wrong shape."
+        )
 
         # Get total injected gas. Multiply by 6 to account for cake model of 60°.
         feature_lst.append(
             self.get_homogeneous_values(self.data, 4) * ((math.pi * 2) / self.angle)
         )
-        assert (
-            feature_lst[-1].shape == self.single_feature_shape
-        ), "Total injected volume feature has wrong shape."
+        assert feature_lst[-1].shape == self.single_feature_shape, (
+            "Total injected volume feature has wrong shape."
+        )
 
         # Get data-driven WI as target. Scaling from cake grid to full 360° grid and
         # from per day to per second takes place inside the function.
@@ -200,11 +201,40 @@ class CO2_2D_Upscaler(BaseUpscaler):
 
         WI_data = self.reduce_data_size(WI_data, step_size_x, step_size_t)
 
+        # NOTE For the following, the MLNearWellConfig file is assumed to have been
+        # created by pyopmnearwell.ml.nn.scale_and_prepare_dataset in the nn directory.
+
         # Take logarithms.
         if log_geom_WI:
             feature_lst[1] = np.log10(feature_lst[1])
+
+            # Update the config to reflect the log10 transform for the analytical PI
+            # feature.
+            config_file = ensemble_dirname.parent / "nn" / "MLNearWellConfig.json"
+            if not config_file.exists() or config_file.stat().st_size == 0:
+                config = {}
+            else:
+                with config_file.open("r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+            with config_file.open("w", encoding="utf-8") as f:
+                config["features"]["inputs"]["analytical_PI"]["transform"] = "log10"
+                json.dump(config, f, indent=4)
+
         if log_WI:
             WI_data = np.log10(WI_data)
+
+            # Update the config to reflect the log10 transform for the WI target.
+            config_file = ensemble_dirname.parent / "nn" / "MLNearWellConfig.json"
+            if not config_file.exists() or config_file.stat().st_size == 0:
+                config = {}
+            else:
+                with config_file.open("r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+            with config_file.open("w", encoding="utf-8") as f:
+                config["features"]["outputs"]["WI"]["transform"] = "log10"
+                json.dump(config, f, indent=4)
 
         # Add analytical WI only now to save computing time. Otherwise it's near
         # impossible, because PVT needs to be called for each datapoint individually.

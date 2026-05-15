@@ -7,16 +7,15 @@ from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
-FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
+FLOW: pathlib.Path = pathlib.Path("/usr") / "local" / "bin" / "flow"
 
-NUM_MEMBERS: int = 1000
+NUM_MEMBERS: int = 2
 SURFACE_DENSITY: float = 998.414
 
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 5,  # number of parallel runs
+    "npruns": 2,  # number of parallel runs
     "variables": {
         "INIT_PRESSURE": (
             50 * units.BAR_TO_PASCAL,
@@ -34,7 +33,7 @@ runspecs_ensemble: dict[str, Any] = {
         "INIT_TEMPERATURE": 40,  # unit: [°C]
         "POROSITY": 0.35,  # unit: [-]
         "SURFACE_DENSITY": SURFACE_DENSITY,  # unit: [kg/m^3]
-        "INJECTION_RATE": 6e1 * SURFACE_DENSITY,  # unit: [kg/d]
+        "INJECTION_RATE": 6e2 * SURFACE_DENSITY,  # unit: [kg/d]
         "INJECTION_TIME": 10,  # unit: [d]
         "REPORTSTEP_LENGTH": 0.1,  # unit [d]
         "NUM_XCELLS": 50,
@@ -51,7 +50,7 @@ runspecs_ensemble: dict[str, Any] = {
 # Training
 ##########
 trainspecs: dict[str, Any] = {
-    "features": ["pressure", "permeability", "height", "radius"],
+    "features": ["pressure", "permeability", "height", "equivalent_radius"],
     "MinMax_scaling": True,
     "kerasify": True,
     "architecture": "fcnn",
@@ -65,11 +64,11 @@ runspecs_integration_1: dict[str, Any] = {
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
         "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
-        "ML_MODEL_PATH": [
+        "MLNEARWELLCONFIGFILE": [
             "",
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
             "",
             "",
             "",
@@ -82,6 +81,15 @@ runspecs_integration_1: dict[str, Any] = {
             "100x100m_Peaceman",
             "52x52m_Peaceman",
             "27x27m_Peaceman",
+        ],
+        "USEMLNEARWELL": [
+            "",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "",
+            "",
+            "",
         ],
     },
     "constants": {
@@ -96,8 +104,8 @@ runspecs_integration_1: dict[str, Any] = {
             # translate from a triangle to a radial grid. Thus it differs from the ensemble
             # well radius.
             "WELL_RADIUS": 0.25,  # unit: [m]
-            "OPM": OPM_ML,
-            "FLOW": FLOW_ML,
+            "OPM": OPM,
+            "FLOW": FLOW,
         },
     },
 }

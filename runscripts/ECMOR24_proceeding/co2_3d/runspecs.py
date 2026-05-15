@@ -12,15 +12,19 @@ A. Cavanagh, H. Hansen, B. Nazarian, M. Iding, and P. Ringrose, “Reservoir Mod
 CO2 Plume Behavior Calibrated Against Monitoring Data From Sleipner, Norway”.
 
 """
+
 from __future__ import annotations
+
 import pathlib
 from typing import Any
+
 from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
-FLOW: pathlib.Path = pathlib.Path("/usr") / "bin" / "flow"
-OPM_ML: pathlib.Path = pathlib.Path("/INSERT/PATH/TO/OPM_ML")
-FLOW_ML: pathlib.Path = OPM_ML / "INSERT/PATH/TO/flow_gaswater_dissolution_diffuse"
+
+OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
+FLOW: pathlib.Path = pathlib.Path("/usr") / "local" / "bin" / "flow"
+
 
 # Fixed values for all runs
 NUM_LAYERS: int = 5
@@ -33,13 +37,13 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 NUM_MEMBERS: int = 250
 
-INJECTION_MIN = 1e5 * SURFACE_DENSITY     # low-end injection ~190 t/d
-INJECTION_MAX = 6e6 * SURFACE_DENSITY     # high-end injection ~11 200 t/d
-#INJECTION_MIN = 7.5e5 * SURFACE_DENSITY   # ~1400 t/d
-#INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
+INJECTION_MIN = 1e5 * SURFACE_DENSITY  # low-end injection ~190 t/d
+INJECTION_MAX = 6e6 * SURFACE_DENSITY  # high-end injection ~11 200 t/d
+# INJECTION_MIN = 7.5e5 * SURFACE_DENSITY   # ~1400 t/d
+# INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (5.0, 120.0, NUM_MEMBERS), 
+    "INJ1_DAYS": (5.0, 120.0, NUM_MEMBERS),
     "SHUT_DAYS": (7.0, 40.0, NUM_MEMBERS),
 }
 """
@@ -54,26 +58,26 @@ variables = {
 }
 runspecs_ensemble: dict[str, Any] = {
     "npoints": NUM_MEMBERS,  # number of ensemble members
-    "npruns": 5,             # number of parallel runs
+    "npruns": 5,  # number of parallel runs
     "variables": variables,
     "constants": {
-        "PERM_0": 5e-13  * units.M2_TO_MILIDARCY,
-        "PERM_1": 1e-12  * units.M2_TO_MILIDARCY,
-        "PERM_2": 2e-12  * units.M2_TO_MILIDARCY,
-        "PERM_3": 4e-12  * units.M2_TO_MILIDARCY,
-        "PERM_4": 8e-12  * units.M2_TO_MILIDARCY,
-        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  
-        "INIT_TEMPERATURE": 40,      # [°C]
+        "PERM_0": 5e-13 * units.M2_TO_MILIDARCY,
+        "PERM_1": 1e-12 * units.M2_TO_MILIDARCY,
+        "PERM_2": 2e-12 * units.M2_TO_MILIDARCY,
+        "PERM_3": 4e-12 * units.M2_TO_MILIDARCY,
+        "PERM_4": 8e-12 * units.M2_TO_MILIDARCY,
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
+        "INIT_TEMPERATURE": 40,  # [°C]
         "SURFACE_DENSITY": SURFACE_DENSITY,
         "inj": [
-        [1, 1, 1, 1, 1.0],  # INJ1
-        [1, 1, 1, 1, 0.0], # SHUT
-        [1, 1, 1, 1, 1.0],  # INJ2
-    ],
+            [1, 1, 1, 1, 1.0],  # INJ1
+            [1, 1, 1, 1, 0.0],  # SHUT
+            [1, 1, 1, 1, 1.0],  # INJ2
+        ],
         "INJECTION_TIME": 180,  # [day]
         "HISTORY_WINDOW_DAYS": 180,  # [day] s
-        "REPORTSTEP_LENGTH": 0.5,    # [day]
-        "WELL_RADIUS": 0.2,          # [m]
+        "REPORTSTEP_LENGTH": 0.5,  # [day]
+        "WELL_RADIUS": 0.2,  # [m]
         "POROSITY": 0.2,
         "NUM_LAYERS": NUM_LAYERS,
         "NUM_ZCELLS": NUM_ZCELLS,
@@ -100,25 +104,26 @@ trainspecs: dict[str, Any] = {
     "MinMax_scaling": True,
     "Z-normalization": False,
     "percentage_loss": False,
-    # Network architecture
+    # Network architecture.
+    # NOTE feature-1 is the upper neighbor and feature+1 is the lower neighbor.
     "features": [
-        "pressure_upper",
-        "pressure",
-        "pressure_lower",
-        "saturation_upper",
-        "saturation",
-        "saturation_lower",
-        "radius",
-        "total_injected_volume",
+        "pressure-1",
+        "pressure+0",
+        "pressure+1",
+        "saturation-1",
+        "saturation+0",
+        "saturation+1",
+        "equivalent_radius",
+        "tot_inj_gas",
         "injection_rate",
         "current_injection_time",
         "previous_shutin_time",
         "previous_injection_time",
         "older_history_time",
-        "PI_analytical",
+        "analytical_PI",
     ],
     "kerasify": True,
-    "architecture": "fcnn", 
+    "architecture": "fcnn",
 }
 
 #############
@@ -128,10 +133,9 @@ constants_integration_1: dict[str, Any] = {
     **runspecs_ensemble["constants"],
     **{
         "INIT_PRESSURE": 65 * units.BAR_TO_PASCAL,
-        "OPM": OPM_ML,
-        "FLOW": FLOW_ML,
+        "OPM": OPM,
+        "FLOW": FLOW,
         "WELL_RADIUS": 0.25,
-
         "INJ1_DAYS": 15.0,
         "SHUT_DAYS": 10.0,
         "INJECTION_RATE": 2.0e6 * SURFACE_DENSITY,

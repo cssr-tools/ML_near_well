@@ -3,10 +3,8 @@ from __future__ import annotations
 import math
 import pathlib
 import sys
-import h5py
-import re
-from collections.abc import Iterable
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -77,7 +75,7 @@ for integration_dir in [
 ANGLE: float = math.pi / 3
 
 
-# 
+#
 # # Run ensemble and extract data.
 if True:
     print("=== BEFORE full_ensemble ===", flush=True)
@@ -92,7 +90,7 @@ if True:
         seed=SEED,
         save_intermediate_data=True,
         intermediate_data_dir=ensemble_dir / "intermediate_data",
-        #keep_result_files=True,
+        # keep_result_files=True,
     )
     print("=== AFTER full_ensemble ===", flush=True)
     print(
@@ -103,18 +101,25 @@ if True:
     num_members = extracted_data.shape[0]
     print("=== BEFORE HDF5 save ===", flush=True)
     with h5py.File(str(ensemble_dir / "features.h5"), "w") as f:
-        dset = f.create_dataset("features", shape=extracted_data.shape, dtype=extracted_data.dtype, compression="gzip")
+        dset = f.create_dataset(
+            "features",
+            shape=extracted_data.shape,
+            dtype=extracted_data.dtype,
+            compression="gzip",
+        )
         for start in range(0, num_members, batch_size):
             end = min(start + batch_size, num_members)
             dset[start:end] = extracted_data[start:end]
             print(f"Saved batch {start}-{end}", flush=True)
     print("=== AFTER h5py save(features) ===", flush=True)
-        # Les fra HDF5 i stedet for np.load
-        
+    # Les fra HDF5 i stedet for np.load
+
     print("=== BEFORE HDF5 load ===", flush=True)
 
     with h5py.File(str(ensemble_dir / "features.h5"), "r") as f:
-        extracted_data = f["features"][:]  # eller bruk f["features"] direkte hvis du vil ha "mmap"-lignende tilgang
+        extracted_data = f["features"][
+            :
+        ]  # eller bruk f["features"] direkte hvis du vil ha "mmap"-lignende tilgang
     print("=== AFTER HDF5 load ===", flush=True)
 
     print("=== BEFORE upscaler.create_ds ===", flush=True)
@@ -122,13 +127,21 @@ if True:
         extracted_data, runspecs_ensemble, data_dim=5, angle=ANGLE
     )
     print("\n=== STAGE: upscaler.create_ds START ===", flush=True)
-    features, targets = upscaler.create_ds(ensemble_dir, step_size_x=12, step_size_t=1, keep_xcells=142)
+    features, targets = upscaler.create_ds(
+        ensemble_dir, step_size_x=12, step_size_t=1, keep_xcells=142
+    )
     # Fjern de to innerste punktene nær brønnen
     features = features[..., 2:, :]
     targets = targets[..., 2:]
-    
-    print(f"create_ds shapes: features={features.shape}, targets={targets.shape}", flush=True)
-    print(f"create_ds dtypes: features={features.dtype}, targets={targets.dtype}", flush=True)
+
+    print(
+        f"create_ds shapes: features={features.shape}, targets={targets.shape}",
+        flush=True,
+    )
+    print(
+        f"create_ds dtypes: features={features.dtype}, targets={targets.dtype}",
+        flush=True,
+    )
     print("=== STAGE: upscaler.create_ds DONE ===", flush=True)
     print("\n=== STAGE: store_dataset(raw) START ===", flush=True)
     ensemble.store_dataset(features, targets, data_dir)
@@ -244,13 +257,6 @@ if False:
 
 # Integrate into OPM.
 if True:
-    """integration.recompile_flow(
-        nn_dir / "scalings.csv",
-        runspecs_integration_3D_and_Peaceman_1["constants"]["OPM"],
-        dirname / "standardwell_impl_3d.mako",
-        dirname / "standardwell.hpp",
-        local_feature_names=["pressure", "saturation"]
-    )"""
     for integration_dir, runspecs_integration in zip(
         [
             integration_3d_dir_1,
@@ -270,7 +276,7 @@ if True:
             integration_dir,
             dirname / "integration.mako",
         )
-        
+
 # Plot results.
 if True:
     for savedir_3d in [
