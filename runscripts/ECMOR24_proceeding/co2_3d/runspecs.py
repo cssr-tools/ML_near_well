@@ -19,7 +19,7 @@ import pathlib
 from typing import Any
 
 from pyopmnearwell.utils import units
-"""
+
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
 OPM: pathlib.Path = pathlib.Path("/opt") / "opm_src"
@@ -43,8 +43,8 @@ INJECTION_MAX = 6e6 * SURFACE_DENSITY  # high-end injection ~11 200 t/d
 # INJECTION_MAX = 2.2e6 * SURFACE_DENSITY   # ~4100 t/d
 
 time_variables: dict[str, tuple[float, float, int]] = {
-    "INJ1_DAYS": (5.0, 100.0, NUM_MEMBERS), 
-    "SHUT_DAYS": (7.0, 42.0, NUM_MEMBERS), 
+    "INJ1_DAYS": (5.0, 100.0, NUM_MEMBERS),
+    "SHUT_DAYS": (7.0, 42.0, NUM_MEMBERS),
 }
 """
 time_variables: dict[str, tuple[float, float, int]] = {
@@ -62,13 +62,13 @@ runspecs_ensemble: dict[str, Any] = {
     "npruns": 5,  # number of parallel runs
     "variables": variables,
     "constants": {
-        "PERM_0": 4e-13  * units.M2_TO_MILIDARCY,
-        "PERM_1": 8e-13  * units.M2_TO_MILIDARCY,
-        "PERM_2": 1.2e-12  * units.M2_TO_MILIDARCY,
-        "PERM_3": 1.6e-12  * units.M2_TO_MILIDARCY,
-        "PERM_4": 2e-12  * units.M2_TO_MILIDARCY,
-        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  
-        "INIT_TEMPERATURE": 40,      # [°C]
+        "PERM_0": 4e-13 * units.M2_TO_MILIDARCY,
+        "PERM_1": 8e-13 * units.M2_TO_MILIDARCY,
+        "PERM_2": 1.2e-12 * units.M2_TO_MILIDARCY,
+        "PERM_3": 1.6e-12 * units.M2_TO_MILIDARCY,
+        "PERM_4": 2e-12 * units.M2_TO_MILIDARCY,
+        "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,
+        "INIT_TEMPERATURE": 40,  # [°C]
         "SURFACE_DENSITY": SURFACE_DENSITY,
         "inj": [
             [1, 1, 1, 1, 1.0],  # INJ1
@@ -143,45 +143,44 @@ constants_integration_1: dict[str, Any] = {
 }
 # This key will be used in variables.
 del constants_integration_1["NUM_ZCELLS"]
-"""
-runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
-    "name": "integration_3D_and_Peaceman_1",
-    "ensemble_name": "ensemble_run",
-    "nn_name": "trainspecs",
-    "variables": {
-        "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
-        "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
-        "MLNEARWELLCONFIGFILE": [
-            "",
-            str(dirname / "nn" / "MLNearWellConfig.json"),
-            str(dirname / "nn" / "MLNearWellConfig.json"),
-            str(dirname / "nn" / "MLNearWellConfig.json"),
-            "",
-            "",
-            "",
-        ],
-        "RUN_NAME": [
-            "8x8M_Peaceman_more_zcells",
-            "90x90m_NN_3D",
-            "52x52m_NN_3D",
-            "27x27m_NN_3D",
-            "90x90m_Peaceman",
-            "52x52m_Peaceman",
-            "27x27m_Peaceman",
-        ],
-        "USEMLNEARWELL": [
-            "",
-            "--UseMLNearWell=true",
-            "--UseMLNearWell=true",
-            "--UseMLNearWell=true",
-            "",
-            "",
-            "",
-        ],
-        "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 6,
-    },
-    "constants": constants_integration_1,
-}"""
+# runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
+#     "name": "integration_3D_and_Peaceman_1",
+#     "ensemble_name": "ensemble_run",
+#     "nn_name": "trainspecs",
+#     "variables": {
+#         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
+#         "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
+#         "MLNEARWELLCONFIGFILE": [
+#             "",
+#             str(dirname / "nn" / "MLNearWellConfig.json"),
+#             str(dirname / "nn" / "MLNearWellConfig.json"),
+#             str(dirname / "nn" / "MLNearWellConfig.json"),
+#             "",
+#             "",
+#             "",
+#         ],
+#         "RUN_NAME": [
+#             "8x8M_Peaceman_more_zcells",
+#             "90x90m_NN_3D",
+#             "52x52m_NN_3D",
+#             "27x27m_NN_3D",
+#             "90x90m_Peaceman",
+#             "52x52m_Peaceman",
+#             "27x27m_Peaceman",
+#         ],
+#         "USEMLNEARWELL": [
+#             "",
+#             "--UseMLNearWell=true",
+#             "--UseMLNearWell=true",
+#             "--UseMLNearWell=true",
+#             "",
+#             "",
+#             "",
+#         ],
+#         "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 6,
+#     },
+#     "constants": constants_integration_1,
+# }
 
 runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "name": "integration_3D_and_Peaceman_1",
@@ -189,11 +188,10 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "nn_name": "trainspecs",
     "variables": {
         "RESERVOIR_SIZE": [550, 1100, 1100, 1100],
-         # Benchmark får LGR/telescopic grid.
+        # Benchmark får LGR/telescopic grid.
         # De andre er uniform coarse grid.
         "GRID_SIZE": [53, 5, 10, 20],
         "GRID_XFACTOR": [1.53, 0.0, 0.0, 0.0],
-        
         "ML_MODEL_PATH": ["", "", "", ""],
         "RUN_NAME": [
             "8x8M_Peaceman_more_zcells",
@@ -209,11 +207,11 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
 constants_integration_2: dict[str, Any] = {
     **constants_integration_1,
     **{
-        "PERM_0": 5e-13  * units.M2_TO_MILIDARCY,
-        "PERM_1": 1e-12  * units.M2_TO_MILIDARCY,
-        "PERM_2": 1.5e-12  * units.M2_TO_MILIDARCY,
-        "PERM_3": 2e-12  * units.M2_TO_MILIDARCY,
-        "PERM_4": 3e-12  * units.M2_TO_MILIDARCY,
+        "PERM_0": 5e-13 * units.M2_TO_MILIDARCY,
+        "PERM_1": 1e-12 * units.M2_TO_MILIDARCY,
+        "PERM_2": 1.5e-12 * units.M2_TO_MILIDARCY,
+        "PERM_3": 2e-12 * units.M2_TO_MILIDARCY,
+        "PERM_4": 3e-12 * units.M2_TO_MILIDARCY,
         "INIT_PRESSURE": 80 * units.BAR_TO_PASCAL,  # unit: [Pa]
     },
 }
