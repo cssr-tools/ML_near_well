@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 from pyopmnearwell.ml.upscale import BaseUpscaler
+from pyopmnearwell.ml.utils import recursive_dict_update
 
 
 class CO2_2D_Upscaler(BaseUpscaler):
@@ -218,7 +219,10 @@ class CO2_2D_Upscaler(BaseUpscaler):
                     config = json.load(f)
 
             with config_file.open("w", encoding="utf-8") as f:
-                config["features"]["inputs"]["analytical_PI"]["transform"] = "log10"
+                update = {
+                    "features": {"inputs": {"analytical_PI": {"transform": "log10"}}}
+                }
+                recursive_dict_update(config, update)
                 json.dump(config, f, indent=4)
 
         if log_WI:
@@ -233,7 +237,8 @@ class CO2_2D_Upscaler(BaseUpscaler):
                     config = json.load(f)
 
             with config_file.open("w", encoding="utf-8") as f:
-                config["features"]["outputs"]["WI"]["transform"] = "log10"
+                update = {"features": {"outputs": {"WI": {"transform": "log10"}}}}
+                recursive_dict_update(config, update)
                 json.dump(config, f, indent=4)
 
         # Add analytical WI only now to save computing time. Otherwise it's near

@@ -320,6 +320,8 @@ private:
                     spec.scaler.type = ScalerValue::Type::MinMax;
                     spec.scaler.min  = s.get<double>("min", 0.0);
                     spec.scaler.max  = s.get<double>("max", 1.0);
+                    spec.scaler.range_min = s.get<double>("range_min", -1.0);
+                    spec.scaler.range_max = s.get<double>("range_max", 1.0);
                 }
                 else {
                     spec.scaler.type = ScalerValue::Type::None;

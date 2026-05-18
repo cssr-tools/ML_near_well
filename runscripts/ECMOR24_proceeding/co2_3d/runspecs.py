@@ -35,7 +35,7 @@ SURFACE_DENSITY: float = 1.86843  # unit: [kg/m^3]
 ##########
 # Ensemble
 ##########
-NUM_MEMBERS: int = 300
+NUM_MEMBERS: int = 20
 
 INJECTION_MIN = 1e5 * SURFACE_DENSITY  # low-end injection ~190 t/d
 INJECTION_MAX = 6e6 * SURFACE_DENSITY  # high-end injection ~11 200 t/d
@@ -187,19 +187,39 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "ensemble_name": "ensemble_run",
     "nn_name": "trainspecs",
     "variables": {
-        "RESERVOIR_SIZE": [550, 1100, 1100, 1100],
+        "RESERVOIR_SIZE": [550, 1100, 1100, 1100, 1100, 1100, 1100],
         # Benchmark får LGR/telescopic grid.
         # De andre er uniform coarse grid.
-        "GRID_SIZE": [53, 5, 10, 20],
-        "GRID_XFACTOR": [1.53, 0.0, 0.0, 0.0],
-        "ML_MODEL_PATH": ["", "", "", ""],
+        "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
+        # "GRID_XFACTOR": [1.53, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "MLNEARWELLCONFIGFILE": [
+            "",
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            "",
+            "",
+            "",
+        ],
         "RUN_NAME": [
             "8x8M_Peaceman_more_zcells",
+            "90x90m_NN",
+            "52x52m_NN",
+            "27x27m_NN",
             "90x90m_Peaceman",
             "52x52m_Peaceman",
             "27x27m_Peaceman",
         ],
-        "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 3,
+        "USEMLNEARWELL": [
+            "",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "",
+            "",
+            "",
+        ],
+        "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 6,
     },
     "constants": constants_integration_1,
 }

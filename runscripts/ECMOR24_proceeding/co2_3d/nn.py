@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import tensorflow as tf
 from pyopmnearwell.ml import ensemble
+from pyopmnearwell.ml.utils import recursive_dict_update
 from pyopmnearwell.utils import units
 
 dirname: pathlib.Path = pathlib.Path(__file__).parent
@@ -244,8 +245,13 @@ def restructure_data(
                 config = json.load(f)
 
         with config_file.open("w", encoding="utf-8") as f:
-            config["features"]["inputs"]["ANALYTICAL_PI"]["transform"] = "log10"
-            config["features"]["outputs"]["WI"]["transform"] = "log10"
+            update = {
+                "features": {
+                    "inputs": {"analytical_PI": {"transform": "log10"}},
+                    "outputs": {"WI": {"transform": "log10"}},
+                }
+            }
+            recursive_dict_update(config, update)
             json.dump(config, f, indent=4)
 
     else:

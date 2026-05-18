@@ -77,7 +77,7 @@ ANGLE: float = math.pi / 3
 
 #
 # # Run ensemble and extract data.
-if True:
+if False:
     print("=== BEFORE full_ensemble ===", flush=True)
     extracted_data: np.ndarray = full_ensemble(
         runspecs_ensemble,
@@ -226,18 +226,17 @@ if True:
     keras.Model.fit = fit_with_callbacks
 
     try:
-        if True:
-            tune_and_train(
-                trainspecs,
-                data_stencil_dir,
-                nn_dir,
-                max_trials=10,
-                lr=2e-3,
-                lr_tune=1e-4,
-                epochs=1000,
-                bs=512,
-                executions_per_trial=1,
-            )
+        tune_and_train(
+            trainspecs,
+            data_stencil_dir,
+            nn_dir,
+            max_trials=10,
+            lr=2e-3,
+            lr_tune=1e-4,
+            epochs=1000,
+            bs=512,
+            executions_per_trial=1,
+        )
     finally:
         keras.Model.fit = original_fit
 

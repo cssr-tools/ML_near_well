@@ -21,6 +21,7 @@ from ecl.summary.ecl_sum import EclSum
 from matplotlib import pyplot as plt
 from pyopmnearwell.ml import ensemble
 from pyopmnearwell.ml import nn as nn_GRU
+from pyopmnearwell.ml.utils import recursive_dict_update
 from pyopmnearwell.utils import plotting, units
 from tensorflow import keras
 
@@ -283,7 +284,8 @@ def tune_and_train(
             config = json.load(f)
 
     with config_file.open("w", encoding="utf-8") as f:
-        config["model_path"] = str(nn_dirname / "bestmodel.keras")
+        update = {"model_path": str(nn_dirname / "bestmodel.keras")}
+        recursive_dict_update(config, update)
         json.dump(config, f, indent=4)
 
 
