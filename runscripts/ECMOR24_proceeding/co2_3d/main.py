@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import pathlib
 import sys
@@ -242,6 +243,19 @@ if True:
 
     print(f"training_history exists: {history_csv.exists()}", flush=True)
     print(f"training_history path: {history_csv}", flush=True)
+
+    with (nn_dir / "MLNearWellConfig.json").open(
+        "r", newline="", encoding="utf-8"
+    ) as f:
+        config = json.load(f)
+        config["model_type"] = "co2_3d_time"
+        json.dump(
+            config,
+            (nn_dir / "MLNearWellConfig.json").open("w", encoding="utf-8"),
+            indent=4,
+        )
+
+
 print("=== STAGE: tune_and_train DONE ===", flush=True)
 # Do some plotting of results and sensitivity analysis.
 if False:
@@ -300,15 +314,15 @@ if True:
     for integration_dir, runspecs_integration in zip(
         [
             integration_3d_dir_1,
-            integration_3d_dir_2,
-            integration_3d_dir_3,
-            integration_3d_dir_4,
+            # integration_3d_dir_2,
+            # integration_3d_dir_3,
+            # integration_3d_dir_4,
         ],
         [
             runspecs_integration_3D_and_Peaceman_1,
-            runspecs_integration_3D_and_Peaceman_2,
-            runspecs_integration_3D_and_Peaceman_3,
-            runspecs_integration_3D_and_Peaceman_4,
+            # runspecs_integration_3D_and_Peaceman_2,
+            # runspecs_integration_3D_and_Peaceman_3,
+            # runspecs_integration_3D_and_Peaceman_4,
         ],
     ):
         integration.run_integration(

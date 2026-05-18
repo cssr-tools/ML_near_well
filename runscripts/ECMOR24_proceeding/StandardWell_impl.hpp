@@ -90,14 +90,10 @@ namespace Opm
             return;
 
         // Load ML near-well model config.
-        if (!configLoaded_) {
-            std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
-            PropertyTree pt(config_file);
-            config_ = MLNearWellConfig(pt);
-            config_.validateConfig();
-            configLoaded_ = true;
-        }
-
+        std::string config_file = Parameters::Get<Parameters::MLNearWellConfigFile>();
+        PropertyTree pt(config_file);
+        config_ = MLNearWellConfig(pt);
+        config_.validateConfig();
     }
 
 

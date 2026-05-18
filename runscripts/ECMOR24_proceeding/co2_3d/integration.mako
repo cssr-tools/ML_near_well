@@ -1,5 +1,5 @@
 """Set the full path to the flow executable and flags"""
-${FLOW} ${USEMLNEARWELL} --MLNearWellConfigFile=${MLNEARWELLCONFIGFILE} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --ecl-enable-drift-compensation=0 --newton-max-iterations=50 --newton-min-iterations=5 --tolerance-mb=1e-7 --tolerance-wells=1e-5 --relaxed-well-flow-tol=1e-5 --use-multisegment-well=false --enable-tuning=true --enable-opm-rst-file=true --linear-solver=cprw --enable-well-operability-check=false --min-time-step-before-shutting-problematic-wells-in-days=1e-1
+${FLOW} ${USEMLNEARWELL} --MLNearWellConfigFile=${MLNEARWELLCONFIGFILE} --linear-solver-reduction=1e-5 --relaxed-max-pv-fraction=0 --newton-max-iterations=50 --newton-min-iterations=5 --tolerance-mb=1e-7 --tolerance-wells=1e-5 --relaxed-well-flow-tol=1e-5 --use-multisegment-well=false --enable-tuning=true --enable-opm-rst-file=true --linear-solver=cprw --enable-well-operability-check=false --min-time-step-before-shutting-problematic-wells-in-days=1e-1
 
 """Set the model parameters"""
 co2store no_disgas_no_diffusion ${RUN_NAME} #Model (co2store/h2store)
@@ -13,7 +13,6 @@ ${INIT_PRESSURE} ${INIT_TEMPERATURE}  0 #Pressure [Pa] on the top, uniform tempe
 ${NUM_LAYERS} 0 0                           #Number of layers [-] and hysteresis (1 to activate) and econ for the producer (for h2 models)
 0 0 0 0 0 0 0                   #Initial salt concentration [kg/m3], salt solubility limit [kg/m3], and precipitated salt density [kg/m3] (for saltprec)
 0                               #The function for the reservoir surface
-
 
 """Set the saturation functions"""
 krw * ((sw - swi) / (1.0 - sni - swi)) ** nkrw             #Wetting rel perm saturation function [-]
