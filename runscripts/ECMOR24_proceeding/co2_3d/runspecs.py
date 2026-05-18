@@ -151,11 +151,11 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
     "variables": {
         "RESERVOIR_SIZE": [550] + [1100] * 6,  # unit: [m]
         "GRID_SIZE": ["20,5,5,5,5,5", 5, 10, 20, 5, 10, 20],
-        "ML_MODEL_PATH": [
+        "MLNEARWELLCONFIGFILE": [
             "",
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
-            str(dirname / "nn" / "WI.model"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "nn" / "MLNearWellConfig.json"),
             "",
             "",
             "",
@@ -168,6 +168,15 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
             "90x90m_Peaceman",
             "52x52m_Peaceman",
             "27x27m_Peaceman",
+        ],
+        "USEMLNEARWELL": [
+            "",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "--UseMLNearWell=true",
+            "",
+            "",
+            "",
         ],
         "NUM_ZCELLS": [NUM_LAYERS * 5] + [NUM_LAYERS] * 6,
     },
