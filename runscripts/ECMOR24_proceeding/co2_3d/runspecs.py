@@ -198,7 +198,7 @@ runspecs_integration_3D_and_Peaceman_1: dict[str, Any] = {
         # "GRID_XFACTOR": [1.53, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "MLNEARWELLCONFIGFILE": [
             # "",
-            str(dirname / "nn" / "MLNearWellConfig.json"),
+            str(dirname / "dorthe_model" / "MLNearWellConfig.json"),
             # str(dirname / "nn" / "MLNearWellConfig.json"),
             # str(dirname / "nn" / "MLNearWellConfig.json"),
             # "",

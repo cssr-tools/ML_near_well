@@ -2822,8 +2822,8 @@ namespace Opm
 
             for (const auto& feature_pair : config_.input_features) {
                 for (const auto& candidate : local_feature_candidates) {
-                    if (MLNearWellConfig::toLowerStr(feature_pair.first) == candidate) {
-                        local_feature_names.push_back(feature_pair.first);
+                    if (MLNearWellConfig::toLowerStr(feature_pair.first).rfind(candidate,0) == 0) {
+                        local_feature_names.push_back(candidate);
                         break;
                     }
                 }
@@ -3033,6 +3033,29 @@ namespace Opm
                 input(config_.stencil_size * num_local_features + 5) = previous_injection_time_scaled;
                 input(config_.stencil_size * num_local_features + 6) = older_history_time;
                 input(config_.stencil_size * num_local_features + 7) = analytical_PI_scaled;
+
+                if config_.debug {
+                    std::cout << "tot_inj_gas scaled: " << tot_inj_gas << std::endl;
+                    std::cout << "tot_inj_gas: " << (current_injection_time + previous_injection_time) * injection_rate_per_day << std::endl;
+
+                    std::cout << "injection_rate scaled: " << injection_rate << std::endl;
+                    std::cout << "injection_rate: " << injection_rate_per_day / 86400 << std::endl;
+
+                    std::cout << "current_injection_time scaled: " << current_injection_time_scaled << std::endl;
+                    std::cout << "current_injection_time: " << current_injection_time << std::endl;
+
+                    std::cout << "previous_shutin_time scaled: " << previous_shutin_time_scaled << std::endl;
+                    std::cout << "previous_shutin_time: " << previous_shutin_time << std::endl;
+
+                    std::cout << "previous_injection_time scaled: " << previous_injection_time_scaled << std::endl;
+                    std::cout << "previous_injection_time: " << previous_injection_time << std::endl;
+
+                    std::cout << "older_history_time scaled: " << older_history_time << std::endl;
+                    std::cout << "older_history_time: " << time_window - time_in_days<< std::endl;
+
+                    std::cout << "analytical_PI scaled: " << analytical_PI_scaled<< std::endl;
+                    std::cout << "analytical_PI: " << analytical_PI<< std::endl;
+                }
 
             }
         }

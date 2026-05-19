@@ -212,7 +212,7 @@ callbacks = [
     ),
 ]
 # Tune and train model.
-if True:
+if False:
     original_fit = keras.Model.fit
 
     def fit_with_callbacks(self, *args, **kwargs):

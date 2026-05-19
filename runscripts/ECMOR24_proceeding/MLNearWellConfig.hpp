@@ -232,12 +232,14 @@ public:
     */
     void validateConfig() const {
         if (model_type == "h2o") {
-            requireFeature(input_features, "PRESSURE", "input");
-            requireFeature(input_features, "ANALYTICAL_PI", "input");
+            requireFeature(input_features, "pressure", "input");
+            requireFeature(input_features, "radius", "input");
+            requireFeature(input_features, "radius", "input");
+            requireFeature(input_features, "radius", "input");
         }
         else if (model_type == "co2_2d") {
-            requireFeature(input_features, "PRESSURE", "input");
-            requireFeature(input_features, "ANALYTICAL_PI", "input");
+            requireFeature(input_features, "pressure", "input");
+            requireFeature(input_features, "analytical_PI", "input");
             requireFeature(output_features, "WI", "output");
 
             // NOTE: The log10 transform takes place in co2_2d/upscale.py
