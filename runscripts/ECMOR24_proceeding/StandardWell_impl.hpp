@@ -3034,7 +3034,7 @@ namespace Opm
                 input(config_.stencil_size * num_local_features + 6) = older_history_time;
                 input(config_.stencil_size * num_local_features + 7) = analytical_PI_scaled;
 
-                if config_.debug {
+                if (config_.debug) {
                     std::cout << "tot_inj_gas scaled: " << tot_inj_gas << std::endl;
                     std::cout << "tot_inj_gas: " << (current_injection_time + previous_injection_time) * injection_rate_per_day << std::endl;
 
