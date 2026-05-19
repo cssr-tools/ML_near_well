@@ -1,0 +1,133 @@
+{
+    "features": {
+        "inputs": {
+            "analytical_PI": {
+                "feature_engineering": "log10",
+                "scaling_params": {
+                    "min": 3.3336525,
+                    "max": 4.39883,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "pressure-1": {
+                "scaling_params": {
+                    "min": 8067770.0,
+                    "max": 10257439.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "pressure": {
+                "scaling_params": {
+                    "min": 8067770.0,
+                    "max": 10257439.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "pressure+1": {
+                "scaling_params": {
+                    "min": 8085245.0,
+                    "max": 10225605.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "saturation-1": {
+                "scaling_params": {
+                    "min": 0.0,
+                    "max": 0.8757416,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "saturation": {
+                "scaling_params": {
+                    "min": 0.0003262762,
+                    "max": 0.89327604,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "saturation+1": {
+                "scaling_params": {
+                    "min": 0.0,
+                    "max": 0.89327604,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "equivalent_radius": {
+                "scaling_params": {
+                    "min": 2.958787,
+                    "max": 85.55439,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "tot_inj_gas": {
+                "scaling_params": {
+                    "min": 192630.16,
+                    "max": 868447600.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "injection_rate": {
+                "scaling_params": {
+                    "min": 385260.3,
+                    "max": 5968712.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "current_injection_time": {
+                "scaling_params": {
+                    "min": 0.0,
+                    "max": 140.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "previous_shutin_time": {
+                "scaling_params": {
+                    "min": 0.0,
+                    "max": 41.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "previous_injection_time": {
+                "scaling_params": {
+                    "min": 0.0,
+                    "max": 99.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            },
+            "older_history_time": {
+                "scaling_params": {
+                    "min": 1.0,
+                    "max": 160.0,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            }
+        },
+        "outputs": {
+            "WI": {
+                "feature_engineering": "log10",
+                "scaling_params": {
+                    "min": -5.657553,
+                    "max": -3.7765987,
+                    "range_min": -1,
+                    "range_max": 1
+                }
+            }
+        }
+    },
+    "model_path": "/workspaces/devcontainer/ML_near_well/runscripts/ECMOR24_proceeding/co2_3d/dorthe_model/WI.model",
+    "model_type": "co2_3d_time",
+    "debug": true
+}

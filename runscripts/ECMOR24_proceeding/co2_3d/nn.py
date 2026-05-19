@@ -247,8 +247,8 @@ def restructure_data(
         with config_file.open("w", encoding="utf-8") as f:
             update = {
                 "features": {
-                    "inputs": {"analytical_PI": {"transform": "log10"}},
-                    "outputs": {"WI": {"transform": "log10"}},
+                    "inputs": {"analytical_PI": {"feature_engineering": "log10"}},
+                    "outputs": {"WI": {"feature_engineering": "log10"}},
                 }
             }
             recursive_dict_update(config, update)

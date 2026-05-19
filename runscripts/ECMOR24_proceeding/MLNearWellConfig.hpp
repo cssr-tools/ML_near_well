@@ -234,8 +234,8 @@ public:
         if (model_type == "h2o") {
             requireFeature(input_features, "pressure", "input");
             requireFeature(input_features, "radius", "input");
-            requireFeature(input_features, "radius", "input");
-            requireFeature(input_features, "radius", "input");
+            // requireFeature(input_features, "radius", "input");
+            // requireFeature(input_features, "radius", "input");
         }
         else if (model_type == "co2_2d") {
             requireFeature(input_features, "pressure", "input");
@@ -243,7 +243,7 @@ public:
             requireFeature(output_features, "WI", "output");
 
             // NOTE: The log10 transform takes place in co2_2d/upscale.py
-            const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+            const auto& analytical_pi_spec = requireFeature(input_features, "analytical_PI", "input");
             const auto& wi_spec = requireFeature(output_features, "WI", "output");
             if (analytical_pi_spec.transform.type != TransformValue::Type::Log10 || wi_spec.transform.type != TransformValue::Type::Log10) {
                 throw std::runtime_error("CO2 2D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies transforms that are not log10");
@@ -256,19 +256,19 @@ public:
             }
 
             // NOTE: The log10 transform takes place in co2_3d/nn.py
-            const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+            const auto& analytical_pi_spec = requireFeature(input_features, "analytical_PI", "input");
             const auto& wi_spec = requireFeature(output_features, "WI", "output");
             if (analytical_pi_spec.transform.type != TransformValue::Type::Log10 || wi_spec.transform.type != TransformValue::Type::Log10) {
                 throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies transforms that are not log10");
             }
         }
-        else if (model_type == "co2_3d_time_in_3d_time") {
+        else if (model_type == "co2_3d_time") {
             if ((time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0)) {
                 throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
             }
 
             // NOTE: The log10 transform takes place in co2_3d/nn.py
-            const auto& analytical_pi_spec = requireFeature(input_features, "ANALYTICAL_PI", "input");
+            const auto& analytical_pi_spec = requireFeature(input_features, "analytical_PI", "input");
             const auto& wi_spec = requireFeature(output_features, "WI", "output");
             if (analytical_pi_spec.transform.type != TransformValue::Type::Log10 || wi_spec.transform.type != TransformValue::Type::Log10) {
                 throw std::runtime_error("CO2 3D model was trained with log10 transform for 'ANALYTICAL_PI' and 'WI', but config specifies transforms that are not log10");

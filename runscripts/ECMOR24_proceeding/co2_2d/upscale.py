@@ -220,7 +220,9 @@ class CO2_2D_Upscaler(BaseUpscaler):
 
             with config_file.open("w", encoding="utf-8") as f:
                 update = {
-                    "features": {"inputs": {"analytical_PI": {"transform": "log10"}}}
+                    "features": {
+                        "inputs": {"analytical_PI": {"feature_engineering": "log10"}}
+                    }
                 }
                 recursive_dict_update(config, update)
                 json.dump(config, f, indent=4)
@@ -237,7 +239,9 @@ class CO2_2D_Upscaler(BaseUpscaler):
                     config = json.load(f)
 
             with config_file.open("w", encoding="utf-8") as f:
-                update = {"features": {"outputs": {"WI": {"transform": "log10"}}}}
+                update = {
+                    "features": {"outputs": {"WI": {"feature_engineering": "log10"}}}
+                }
                 recursive_dict_update(config, update)
                 json.dump(config, f, indent=4)
 
