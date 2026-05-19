@@ -325,6 +325,34 @@ if True:
             # runspecs_integration_3D_and_Peaceman_4,
         ],
     ):
+        # Write injection schedule to config.
+        config_file = dirname / "dorthe_model" / "MLNearWellConfig.json"
+        if not config_file.exists() or config_file.stat().st_size == 0:
+            config = {}
+        else:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+
+        with config_file.open("w", encoding="utf-8") as f:
+            update = {
+                "stencil_size": 3,
+                "time_window": 180,
+                "injection_rate_per_day": runspecs_integration_3D_and_Peaceman_1[
+                    "constants"
+                ]["INJECTION_RATE"],
+                "first_injection_length": runspecs_integration_3D_and_Peaceman_1[
+                    "constants"
+                ]["INJ1_DAYS"],
+                "first_break_length": runspecs_integration_3D_and_Peaceman_1[
+                    "constants"
+                ]["SHUT_DAYS"],
+                "second_injection_length": 180
+                - runspecs_integration_3D_and_Peaceman_1["constants"]["INJ1_DAYS"]
+                - runspecs_integration_3D_and_Peaceman_1["constants"]["SHUT_DAYS"],
+            }
+            utils.recursive_dict_update(config, update)
+            json.dump(config, f, indent=4)
+
         integration.run_integration(
             runspecs_integration,
             integration_dir,
