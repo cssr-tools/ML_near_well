@@ -2926,17 +2926,17 @@ namespace Opm
                         std::cout << full_feature_name << " scaled: " << local_features[i][j] << std::endl;
                     }
                 }
-
-                // Add shared global feature for the static and time-dependent model.
-    
-                // equivalent well radius - unit [m]
-                const auto& connection = Base::well_ecl_.getConnections()[perf];
-                const auto re =  config_.template transformAndScaleInput<Value>(
-                    "equivalent_radius",
-                    Value(connection.r0())
-                );
-                input(config_.stencil_size * num_local_features) = re;
             }
+
+            // Add shared global feature for the static and time-dependent model.
+
+            // equivalent well radius - unit [m]
+            const auto& connection = Base::well_ecl_.getConnections()[perf];
+            const auto re =  config_.template transformAndScaleInput<Value>(
+                "equivalent_radius",
+                Value(connection.r0())
+            );
+            input(config_.stencil_size * num_local_features) = re;
 
             // Add global features specific  to the static model.
             if (config_.model_type == "co2_3d") {
