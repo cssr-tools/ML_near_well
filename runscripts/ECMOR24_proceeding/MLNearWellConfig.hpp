@@ -268,7 +268,7 @@ public:
                      << ", first_injection_length=" << first_injection_length
                      << ", first_break_length=" << first_break_length
                      << ", second_injection_length=" << second_injection_length
-                     << endl;
+                     << std::endl;
                 throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
             }
 
