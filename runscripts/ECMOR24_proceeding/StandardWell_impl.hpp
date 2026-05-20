@@ -2905,6 +2905,13 @@ namespace Opm
                     }
                 }
 
+            if (config_.debug) {
+                std::cout << "Input tensor size: " << config_.input_features.size() << std::endl;
+                std::cout << "Num local features: " << num_local_features << std::endl;
+                std::cout << "Stencil size: " << config_.stencil_size << std::endl;
+                std::cout << "Expected elements: " << (num_local_features * config_.stencil_size) << std::endl;
+            }
+
             // Scale local features and reorder them into the input tensor.
             // Note: The order needs to be the same as during training.
             for (int j = 0; j < num_local_features; ++j) {
@@ -2915,7 +2922,13 @@ namespace Opm
                     // this is consistent with the naming in co2_3d.runspecs.trainspecs.
                     int offset = i - (config_.stencil_size / 2);
                     std::string full_feature_name = local_feature_names[j] + (offset >= 0 ? "+" : "-") + std::to_string(std::abs(offset));
-        
+
+                    if (config_.debug) {
+                        std::cout << full_feature_name << " " << local_features[i][j] << std::endl;
+                    }
+
+
+
                     local_features[i][j] = config_.template transformAndScaleInput<Value>(
                         full_feature_name,
                         local_features[i][j]
