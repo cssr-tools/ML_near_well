@@ -336,19 +336,23 @@ if True:
         with config_file.open("w", encoding="utf-8") as f:
             update = {
                 "stencil_size": 3,
-                "time_window": 180,
-                "injection_rate_per_day": runspecs_integration_3D_and_Peaceman_1[
-                    "constants"
-                ]["INJECTION_RATE"],
-                "first_injection_length": runspecs_integration_3D_and_Peaceman_1[
-                    "constants"
-                ]["INJ1_DAYS"],
-                "first_break_length": runspecs_integration_3D_and_Peaceman_1[
-                    "constants"
-                ]["SHUT_DAYS"],
-                "second_injection_length": 180
-                - runspecs_integration_3D_and_Peaceman_1["constants"]["INJ1_DAYS"]
-                - runspecs_integration_3D_and_Peaceman_1["constants"]["SHUT_DAYS"],
+                "time_window": 180.0,
+                "injection_rate_per_day": float(
+                    runspecs_integration_3D_and_Peaceman_1["constants"][
+                        "INJECTION_RATE"
+                    ]
+                ),
+                "first_injection_length": float(
+                    runspecs_integration_3D_and_Peaceman_1["constants"]["INJ1_DAYS"]
+                ),
+                "first_break_length": float(
+                    runspecs_integration_3D_and_Peaceman_1["constants"]["SHUT_DAYS"]
+                ),
+                "second_injection_length": float(
+                    180
+                    - runspecs_integration_3D_and_Peaceman_1["constants"]["INJ1_DAYS"]
+                    - runspecs_integration_3D_and_Peaceman_1["constants"]["SHUT_DAYS"]
+                ),
             }
             utils.recursive_dict_update(config, update)
             json.dump(config, f, indent=4)

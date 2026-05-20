@@ -186,10 +186,10 @@ public:
 
         stencil_size = model_config.get<int>("stencil_size", 0);
 
-        time_window = model_config.get<int>("time_window", 0);
-        first_injection_length = model_config.get<int>("first_injection_length", 0);
-        first_break_length = model_config.get<int>("first_break_length", 0);
-        second_injection_length = model_config.get<int>("second_injection_length", 0);
+        time_window = model_config.get<double>("time_window", 0);
+        first_injection_length = model_config.get<double>("first_injection_length", 0);
+        first_break_length = model_config.get<double>("first_break_length", 0);
+        second_injection_length = model_config.get<double>("second_injection_length", 0);
     }
 
     bool hasInputFeature(const std::string& name) const {

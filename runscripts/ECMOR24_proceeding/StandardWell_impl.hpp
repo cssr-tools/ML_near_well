@@ -2914,7 +2914,7 @@ namespace Opm
                     // a stencil size of 5, the order will be: +2, +1, 0, -1, -2. Again,
                     // this is consistent with the naming in co2_3d.runspecs.trainspecs.
                     int offset = i - (config_.stencil_size / 2);
-                    std::string full_feature_name = local_feature_names[j] + (offset >= 0 ? "+" : "-") + std::to_string(offset);
+                    std::string full_feature_name = local_feature_names[j] + (offset >= 0 ? "+" : "-") + std::to_string(std::abs(offset));
         
                     local_features[i][j] = config_.template transformAndScaleInput<Value>(
                         full_feature_name,
