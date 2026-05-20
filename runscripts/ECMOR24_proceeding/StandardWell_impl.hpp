@@ -2820,8 +2820,8 @@ namespace Opm
             std::string local_feature_candidates[] = {"pressure", "saturation", "permeability"};
             std::vector<std::string> local_feature_names;
 
-            for (const auto& feature_pair : config_.input_features) {
-                for (const auto& candidate : local_feature_candidates) {
+            for (const auto& candidate : local_feature_candidates) {
+                for (const auto& feature_pair : config_.input_features) {
                     if (MLNearWellConfig::toLowerStr(feature_pair.first).rfind(candidate,0) == 0) {
                         local_feature_names.push_back(candidate);
                         break;
