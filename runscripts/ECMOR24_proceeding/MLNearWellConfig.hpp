@@ -263,7 +263,12 @@ public:
             }
         }
         else if (model_type == "co2_3d_time") {
-            if ((time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0)) {
+            if ((time_window <= 0) or (first_injection_length <= 0) or (first_break_length <= 0) or (second_injection_length <= 0)) {
+                std::cout << "Invalid time parameters: time_window=" << time_window
+                     << ", first_injection_length=" << first_injection_length
+                     << ", first_break_length=" << first_break_length
+                     << ", second_injection_length=" << second_injection_length
+                     << endl;
                 throw std::runtime_error("Invalid 'time_window' or related parameters for CO2 3D time model in MLNearWell config");
             }
 
