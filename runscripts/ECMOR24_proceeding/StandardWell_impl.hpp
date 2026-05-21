@@ -294,6 +294,7 @@ namespace Opm
                              deferred_logger); 
                 }
                 auto injectorType = this->well_ecl_.injectorType();
+                if (injectorType == InjectorType::WATER) {
                     const unsigned waterCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::waterCompIdx);
                     if constexpr (std::is_same_v<Value, EvalWell>) {
                         WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
@@ -301,8 +302,7 @@ namespace Opm
                         WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
                     }
                     cq_s[waterCompIdx] = - WI *  drawdown;
-                }
-                else if (injectorType == InjectorType::GAS) {
+                } else if (injectorType == InjectorType::GAS) {
                     const unsigned gasCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::gasCompIdx);
                     if constexpr (std::is_same_v<Value, EvalWell>) {
                         WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
@@ -311,10 +311,15 @@ namespace Opm
                     }
                     cq_s[gasCompIdx] = - WI *  drawdown;
                 }
-            } 
-            else {
+            } else {
                 // compute volume ratio between connection at standard conditions
                 Value volumeRatio = bhp * 0.0; // initialize it with the correct type
+
+                // Using total mobilities
+                Value total_mob_dense = mob[0];
+                for (int componentIdx = 1; componentIdx < this->numConservationQuantities(); ++componentIdx) {
+                    total_mob_dense += mob[componentIdx];
+                }
 
                 if (FluidSystem::enableVaporizedWater() && FluidSystem::enableDissolvedGasInWater()) {
                     ratioCalc.disOilVapWatVolumeRatio(volumeRatio, rvw, rsw, pressure,
