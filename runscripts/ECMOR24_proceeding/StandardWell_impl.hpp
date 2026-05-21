@@ -2835,11 +2835,13 @@ namespace Opm
             int num_local_features = local_feature_names.size();
     
             // Get values for local features.
-            std::vector<std::vector<Value>> local_features(num_local_features, std::vector<Value>(config_.stencil_size));
+            std::vector<std::vector<Value>> local_features(config_.stencil_size, std::vector<Value>(num_local_features));
 
             for (int i = 0; i < config_.stencil_size; ++i) {
                 // Perforation index
                 int perf_i = perf - 1 + i;
+
+                std::cout << "DEBUG: Loop iteration i=" << i << ", perf=" << perf << ", perf_i=" << perf_i << std::endl;
 
                 // First treat the cases where the perforation index is out of bound,
                 // i.e., the stencil goes beyond the upper or lower boundary of the
@@ -2849,8 +2851,16 @@ namespace Opm
 
                 // Upper boundary: Set padding
                 if (perf_i < 0 ) {
+                    std::cout << "DEBUG: Upper boundary padding (perf_i=" << perf_i << ")" << std::endl;
+                    std::cout << "DEBUG: num_local_features=" << num_local_features << ", local_feature_names.size()=" << local_feature_names.size() << std::endl;
                     for (int j = 0; j < num_local_features; ++j) {
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
+
+                        if (config_.debug) {
+                            std::cout << "DEBUG: Setting feature j=" << j << std::endl;
+                            std::cout << "DEBUG: Upper boundary feature_name=" << feature_name << std::endl;
+                        }
+
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[0];
@@ -2866,8 +2876,18 @@ namespace Opm
                     }
                 // Lower boundary: Set padding
                 else if (perf_i >= this->number_of_local_perforations_) {
+                    if (config_.debug) {
+                        std::cout << "DEBUG: Lower boundary padding (perf_i=" << perf_i << ", number_of_local_perforations_=" << this->number_of_local_perforations_ << ")" << std::endl;
+                        std::cout << "DEBUG: num_local_features=" << num_local_features << ", local_feature_names.size()=" << local_feature_names.size() << std::endl;
+                    }
                     for (int j = 0; j < num_local_features; ++j) {
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
+
+                        if (config_.debug) {
+                            std::cout << "DEBUG: Setting feature j=" << j << std::endl;
+                            std::cout << "DEBUG: Lower boundary feature_name=" << feature_name << std::endl;
+                        }
+
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
                             const int cell_idx = this->well_cells_[this->number_of_local_perforations_ - 1];
@@ -2889,8 +2909,21 @@ namespace Opm
                     const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                     auto fs = intQuants.fluidState();
 
+                    if (config_.debug) {
+                        std::cout << "DEBUG: Normal case (perf_i=" << perf_i << ")" << std::endl;
+                        std::cout << "DEBUG: well_cells_.size()=" << this->well_cells_.size() << std::endl;
+                        std::cout << "DEBUG: cell_idx=" << cell_idx << std::endl;
+                        std::cout << "DEBUG: Got fluid state, num_local_features=" << num_local_features << std::endl;
+                    }
+
                     for (int j = 0; j < num_local_features; ++j) {
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
+
+                        if (config_.debug) {
+                        std::cout << "DEBUG: Processing local feature j=" << j << ", local_feature_names.size()=" << local_feature_names.size() << std::endl;
+                        std::cout << "DEBUG: feature_name=" << feature_name << std::endl;
+                        }
+
                         if (feature_name == "pressure") {
                             local_features[i][j] = obtain(this->getPerfCellPressure(fs));
                             }
@@ -2904,6 +2937,7 @@ namespace Opm
                             local_features[i][j] = Value(connection.Kh() / connection.connectionLength());
                             }
                         std::cout << feature_name << " cell_" << i << ": " << local_features[i][j] << std::endl;
+                        std::cout << "DEBUG: Successfully processed feature j=" << j << std::endl;
                         }
                     }
                 }
