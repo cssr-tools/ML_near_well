@@ -113,7 +113,8 @@ namespace Opm
                     const bool allow_cf,
                     std::vector<Value>& cq_s,
                     PerforationRates<Scalar>& perf_rates,
-                    DeferredLogger& deferred_logger) const
+                    DeferredLogger& deferred_logger,
+                    const double analytical_PI) const
     {
         auto obtain = [this](const Eval& value)
                       {
@@ -199,7 +200,8 @@ namespace Opm
                         cmix_s,
                         cq_s,
                         perf_rates,
-                        deferred_logger);
+                        deferred_logger,
+                        analytical_PI);
     }
 
 
@@ -224,7 +226,8 @@ namespace Opm
                     const std::vector<Value>& cmix_s,
                     std::vector<Value>& cq_s,
                     PerforationRates<Scalar>& perf_rates,
-                    DeferredLogger& deferred_logger) const
+                    DeferredLogger& deferred_logger,
+                    const double analytical_PI) const
     {
         // Pressure drawdown (also used to determine direction of flow)
         const Value well_pressure = bhp + this->connections_.pressure_diff(perf);
@@ -291,21 +294,20 @@ namespace Opm
                              deferred_logger); 
                 }
                 auto injectorType = this->well_ecl_.injectorType();
-                if (injectorType == InjectorType::WATER) {
                     const unsigned waterCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::waterCompIdx);
                     if constexpr (std::is_same_v<Value, EvalWell>) {
-                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[waterCompIdx]));
+                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
                     } else {
-                        WI = wellIndexEval(simulator, perf, pressure, Tw[waterCompIdx]);
+                        WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
                     }
                     cq_s[waterCompIdx] = - WI *  drawdown;
                 }
                 else if (injectorType == InjectorType::GAS) {
                     const unsigned gasCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::gasCompIdx);
                     if constexpr (std::is_same_v<Value, EvalWell>) {
-                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), Tw[gasCompIdx]));
+                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
                     } else {
-                        WI = wellIndexEval(simulator, perf, pressure, Tw[gasCompIdx]);
+                        WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
                     }
                     cq_s[gasCompIdx] = - WI *  drawdown;
                 }
@@ -557,9 +559,12 @@ namespace Opm
         Scalar trans_mult = simulator.problem().template wellTransMultiplier<Scalar>(intQuants,  cell_idx);
         const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
         const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
-        
+
+        double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+        const double analytical_PI = this->well_index_[perf] * trans_mult;
+
         computePerfRate(simulator, intQuants, mob, bhp, Tw, perf, allow_cf,
-                        cq_s, perf_rates, deferred_logger);
+                        cq_s, perf_rates, deferred_logger, analytical_PI);
 
         auto& ws = well_state.well(this->index_of_well_);
         auto& perf_data = ws.perf_data;
@@ -1533,10 +1538,13 @@ namespace Opm
             const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
             const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
 
+            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult;
+
             std::vector<Scalar> cq_s(this->num_conservation_quantities_, 0.);
             PerforationRates<Scalar> perf_rates;
             computePerfRate(simulator, intQuants, mob, bhp, Tw, perf, allow_cf,
-                            cq_s, perf_rates, deferred_logger);
+                            cq_s, perf_rates, deferred_logger, analytical_PI);
 
             for(int p = 0; p < np; ++p) {
                 well_flux[FluidSystem::activeCompToActivePhaseIdx(p)] += cq_s[p];
@@ -1925,8 +1933,12 @@ namespace Opm
             Scalar trans_mult = simulator.problem().template wellTransMultiplier<Scalar>(int_quant, cell_idx);
             const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
             const std::vector<Scalar> Tw = this->wellIndex(perf, int_quant, trans_mult, wellstate_nupcol);
+
+            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult;
+
             computePerfRate(simulator, int_quant, mob, bhp, Tw, perf, allow_cf, cq_s,
-                            perf_rates, deferred_logger);
+                            perf_rates, deferred_logger, analytical_PI);
             // TODO: make area a member
             const Scalar area = 2 * M_PI * this->perf_rep_radius_[perf] * this->perf_length_[perf];
             const auto& material_law_manager = simulator.problem().materialLawManager();
@@ -2569,8 +2581,12 @@ namespace Opm
             const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
             const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
             PerforationRates<Scalar> perf_rates;
+
+            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult;
+
             computePerfRate(simulator, intQuants, mob, bhp.value(), Tw, perf, allow_cf,
-                            cq_s, perf_rates, deferred_logger);
+                            cq_s, perf_rates, deferred_logger, analytical_PI);
             for (int comp = 0; comp < this->num_conservation_quantities_; ++comp) {
                 well_q_s[comp] += cq_s[comp];
             }

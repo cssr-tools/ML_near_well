@@ -291,7 +291,8 @@ namespace Opm
                              const bool allow_cf,
                              std::vector<Value>& cq_s,
                              PerforationRates<Scalar>& perf_rates,
-                             DeferredLogger& deferred_logger) const;
+                             DeferredLogger& deferred_logger,
+                            const double analytical_PI) const;
 
         template<class Value>
         void computePerfRate(const Simulator& simulator,
@@ -310,7 +311,8 @@ namespace Opm
                              const std::vector<Value>& cmix_s,
                              std::vector<Value>& cq_s,
                              PerforationRates<Scalar>& perf_rates,
-                             DeferredLogger& deferred_logger) const;
+                             DeferredLogger& deferred_logger,
+                            const double analytical_PI) const;
 
         void computeWellRatesWithBhpIterations(const Simulator& ebosSimulator,
                                                const Scalar& bhp,
