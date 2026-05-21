@@ -138,7 +138,7 @@ constants_integration_1: dict[str, Any] = {
         "WELL_RADIUS": 0.2,
         "INJ1_DAYS": 75.0,
         "SHUT_DAYS": 33.0,
-        "INJECTION_RATE": 9.0e6 * SURFACE_DENSITY,
+        "INJECTION_RATE": 1.0e6 * SURFACE_DENSITY,
     },
 }
 # This key will be used in variables.

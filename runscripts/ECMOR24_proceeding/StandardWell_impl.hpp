@@ -3072,9 +3072,11 @@ namespace Opm
                     time_window - time_in_days
                 );
 
+
+
                 const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
                     "analytical_PI",
-                    analytical_PI
+                    analytical_PI * 1.0132500e+15 // scale from m^2 to mD which was used in the model training.
                 );
 
                 input(config_.stencil_size * num_local_features + 1) = tot_inj_gas;
