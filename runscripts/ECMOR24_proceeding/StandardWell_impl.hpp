@@ -2755,11 +2755,11 @@ namespace Opm
 
         ML::Tensor<Value> input{config_.input_features.size()};
 
-        // Collect and scale input variables common across all models.
-        // well block pressure - unit [Pa]
-        const auto p = config_.template transformAndScaleInput<Value>("pressure", pressure);
 
         if (config_.model_type == "h2o_2d") {
+            // well block pressure - unit [Pa]
+            const auto p = config_.template transformAndScaleInput<Value>("pressure", pressure);
+
             // permeability - has unit [m^2] both inside OPM and as the input for the
             // neural network
             const auto& connection = Base::well_ecl_.getConnections()[perf];
@@ -2797,6 +2797,9 @@ namespace Opm
 
         }
         else if (config_.model_type == "co2_2D") {
+                // well block pressure - unit [Pa]
+                const auto p = config_.template transformAndScaleInput<Value>("pressure", pressure);
+
                 // geometrical part of WI
                 const auto analytical_PI_scaled = config_.template transformAndScaleInput<Value>(
                     "analytical_PI",
@@ -2850,7 +2853,7 @@ namespace Opm
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
-                            const int cell_idx = this->well_cells_[perf_i + 1];
+                            const int cell_idx = this->well_cells_[0];
                             const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                             auto fs = intQuants.fluidState();
                             local_features[i][j] = obtain(this->getPerfCellPressure(fs));
@@ -2867,7 +2870,7 @@ namespace Opm
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
                         // Neighbor padding for pressure
                         if (feature_name == "pressure") {
-                            const int cell_idx = this->well_cells_[perf_i - 1];
+                            const int cell_idx = this->well_cells_[this->number_of_local_perforations_ - 1];
                             const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
                             auto fs = intQuants.fluidState();
                             local_features[i][j] = obtain(this->getPerfCellPressure(fs));

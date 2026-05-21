@@ -233,7 +233,7 @@ public:
     void validateConfig() const {
         if (model_type == "h2o") {
             requireFeature(input_features, "pressure", "input");
-            requireFeature(input_features, "radius", "input");
+            requireFeature(input_features, "equivalent_radius", "input");
             // requireFeature(input_features, "radius", "input");
             // requireFeature(input_features, "radius", "input");
         }
