@@ -2841,7 +2841,9 @@ namespace Opm
                 // Perforation index
                 int perf_i = perf - 1 + i;
 
-                std::cout << "DEBUG: Loop iteration i=" << i << ", perf=" << perf << ", perf_i=" << perf_i << std::endl;
+                if (config_.debug) {
+                    std::cout << "DEBUG: Loop iteration i=" << i << ", perf=" << perf << ", perf_i=" << perf_i << std::endl;
+                }
 
                 // First treat the cases where the perforation index is out of bound,
                 // i.e., the stencil goes beyond the upper or lower boundary of the
@@ -2851,8 +2853,10 @@ namespace Opm
 
                 // Upper boundary: Set padding
                 if (perf_i < 0 ) {
-                    std::cout << "DEBUG: Upper boundary padding (perf_i=" << perf_i << ")" << std::endl;
-                    std::cout << "DEBUG: num_local_features=" << num_local_features << ", local_feature_names.size()=" << local_feature_names.size() << std::endl;
+                    if (config_.debug) {
+                        std::cout << "DEBUG: Upper boundary padding (perf_i=" << perf_i << ")" << std::endl;
+                        std::cout << "DEBUG: num_local_features=" << num_local_features << ", local_feature_names.size()=" << local_feature_names.size() << std::endl;
+                    }
                     for (int j = 0; j < num_local_features; ++j) {
                         std::string feature_name = MLNearWellConfig::toLowerStr(local_feature_names[j]);
 
