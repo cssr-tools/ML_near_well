@@ -2950,7 +2950,8 @@ namespace Opm
             }
 
             // Scale local features and reorder them into the input tensor.
-            // Note: The order needs to be the same as during training.
+            // Note: The order needs to be the same as during training. 
+            // Features are grouped by name, not by offset.
             for (int j = 0; j < num_local_features; ++j) {
                 for (int i = 0; i < config_.stencil_size; ++i) {
                     // We assume the stencil size is odd and the features are ordered
