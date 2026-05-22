@@ -293,23 +293,19 @@ namespace Opm
                              fmt::format("ML well index only implemented with no cross flow. Well {}", name()),
                              deferred_logger); 
                 }
+                if constexpr (std::is_same_v<Value, EvalWell>) {
+                    WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
+                } else {
+                    WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
+                }
                 auto injectorType = this->well_ecl_.injectorType();
                 if (injectorType == InjectorType::WATER) {
                     const unsigned waterCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::waterCompIdx);
-                    if constexpr (std::is_same_v<Value, EvalWell>) {
-                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
-                    } else {
-                        WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
-                    }
-                    cq_s[waterCompIdx] = - WI *  drawdown;
+                    // Account for relative permeability
+                    cq_s[waterCompIdx] = - WI * drawdown * Tw[waterCompIdx] / analytical_PI;
                 } else if (injectorType == InjectorType::GAS) {
                     const unsigned gasCompIdx = FluidSystem::canonicalToActiveCompIdx(FluidSystem::gasCompIdx);
-                    if constexpr (std::is_same_v<Value, EvalWell>) {
-                        WI = this->extendEval(wellIndexEval(simulator, perf, Base::restrictEval(pressure), analytical_PI));
-                    } else {
-                        WI = wellIndexEval(simulator, perf, pressure, analytical_PI);
-                    }
-                    cq_s[gasCompIdx] = - WI *  drawdown;
+                    cq_s[gasCompIdx] = - WI *  drawdown * Tw[gasCompIdx] / analytical_PI;
                 }
             } else {
                 // compute volume ratio between connection at standard conditions
@@ -3051,13 +3047,13 @@ namespace Opm
                 else if (time_in_days >= first_injection_length) {
                     // Phase 2: first break
                     current_injection_time = 0.0;
-                    previous_shutin_time = time_in_days - first_injection_length;
+                    previous_shutin_time = 0.0;
                     previous_injection_time = first_injection_length;
                 }
                 else {
                     // Phase 1: first injection
                     current_injection_time = time_in_days;
-                    previous_shutin_time = config_.time_window - time_in_days;
+                    previous_shutin_time = 0.0;
                     previous_injection_time = 0.0;
                 }
 
@@ -3089,7 +3085,7 @@ namespace Opm
                 );
                 const auto older_history_time = config_.template transformAndScaleInput<Value>(
                     "older_history_time",
-                    time_window - time_in_days
+                    time_window - current_injection_time - previous_shutin_time - previous_injection_time
                 );
 
 
