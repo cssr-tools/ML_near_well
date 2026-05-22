@@ -315,12 +315,6 @@ namespace Opm
                 // compute volume ratio between connection at standard conditions
                 Value volumeRatio = bhp * 0.0; // initialize it with the correct type
 
-                // Using total mobilities
-                Value total_mob_dense = mob[0];
-                for (int componentIdx = 1; componentIdx < this->numConservationQuantities(); ++componentIdx) {
-                    total_mob_dense += mob[componentIdx];
-                }
-
                 if (FluidSystem::enableVaporizedWater() && FluidSystem::enableDissolvedGasInWater()) {
                     ratioCalc.disOilVapWatVolumeRatio(volumeRatio, rvw, rsw, pressure,
                                                     cmix_s, b_perfcells_dense, deferred_logger);
@@ -565,8 +559,8 @@ namespace Opm
         const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
         const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
 
-        double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
-        const double analytical_PI = this->well_index_[perf] * trans_mult;
+        double trans_mult_old = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+        const double analytical_PI = this->well_index_[perf] * trans_mult_old;
 
         computePerfRate(simulator, intQuants, mob, bhp, Tw, perf, allow_cf,
                         cq_s, perf_rates, deferred_logger, analytical_PI);
@@ -1543,8 +1537,8 @@ namespace Opm
             const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
             const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
 
-            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
-            const double analytical_PI = this->well_index_[perf] * trans_mult;
+            double trans_mult_old = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult_old;
 
             std::vector<Scalar> cq_s(this->num_conservation_quantities_, 0.);
             PerforationRates<Scalar> perf_rates;
@@ -1939,8 +1933,9 @@ namespace Opm
             const auto& wellstate_nupcol = simulator.problem().wellModel().nupcolWellState().well(this->index_of_well_);
             const std::vector<Scalar> Tw = this->wellIndex(perf, int_quant, trans_mult, wellstate_nupcol);
 
-            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
-            const double analytical_PI = this->well_index_[perf] * trans_mult;
+            const auto& intQuants = simulator.model().intensiveQuantities(cell_idx, /*timeIdx=*/ 0);
+            double trans_mult_old = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult_old;
 
             computePerfRate(simulator, int_quant, mob, bhp, Tw, perf, allow_cf, cq_s,
                             perf_rates, deferred_logger, analytical_PI);
@@ -2587,8 +2582,8 @@ namespace Opm
             const std::vector<Scalar> Tw = this->wellIndex(perf, intQuants, trans_mult, wellstate_nupcol);
             PerforationRates<Scalar> perf_rates;
 
-            double trans_mult = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
-            const double analytical_PI = this->well_index_[perf] * trans_mult;
+            double trans_mult_old = simulator.problem().template rockCompTransMultiplier<double>(intQuants, cell_idx);
+            const double analytical_PI = this->well_index_[perf] * trans_mult_old;
 
             computePerfRate(simulator, intQuants, mob, bhp.value(), Tw, perf, allow_cf,
                             cq_s, perf_rates, deferred_logger, analytical_PI);
